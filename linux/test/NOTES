@@ -1,0 +1,8 @@
+test_thumb2 (12 bytes actual code)
+	default (as 2.35.2)	764 bytes
+	strip			308 bytes
+	sstrip			96 bytes
+
+84 bytes of overhead????
+
+	
