@@ -1,5 +1,16 @@
 @ Thumb2 sierpinski
 
+@ 187 bytes -- initial implementation
+@ 187 bytes -- use iteq 			(saved 2 bytes)
+@ 183 bytes -- no exit
+@ 179 bytes -- registers are 0 at entry
+@ 175 bytes -- only one color string
+@ 171 bytes -- get rid of separate linefeed call
+@ 163 bytes -- inline write_stdout
+@ 159 bytes -- don't need to save around syscall
+@ 155 bytes -- use narrow increment
+@ 151 bytes -- countdown X, use cbnz, optimize end of line
+
 .syntax unified
 #.arm
 .thumb
@@ -15,41 +26,32 @@
 
         .globl _start
 _start:
+@	movs	r4,#0		@ Y	registers are 0 at entry on Linux
+	movw	r6,#:lower16:data_begin
+	movt	r6,#:upper16:data_begin
 
-	movs	r4,#0		@ Y
+	@ setup delay to be 0x200.0000 nanoseconds (roughly 33ms)
+	movs	r3,#2
+	strb.n	r3,[r6,((time-data_begin)+7)]
+
 forever_loop:
-	movs	r3,#0		@ X
+	movs	r3,#78		@ X
 xloop:
 
-	ands	r5,r3,r4
-	beq	black
-green:
-	ldr	r1,=green_string
-	b	done
-black:
-	ldr	r1,=black_string
-done:
-	movs	r2,#6
-	bl	write_stdout
+	ands	r5,r3,r4		@ X AND Y = the sierpinski magic
 
-	adds	r3,r3,#1
-	cmp	r3,#79
-	bne	xloop
+	ite	eq
+	moveq	r5,#'2'			@ green
+	movne	r5,#'0'			@ black
 
-	movs	r2,#1
-	ldr	r1,=linefeed
-	bl	write_stdout
+	movs	r1,r6
+@	ldr	r1,=color_string
+	strb	r5,[r1,3]		@ patch string with 2/0
+	movs	r2,#6			@ length in r2
 
-	adds	r4,r4,#1
-
-	@ usleep(10000);
-
-	ldr	r0,=time				@ blurgh
-	movs	r1,0
-	movs	r7,#SYSCALL_NANOSLEEP
-	swi	#0
-
-	b	forever_loop
+	cbnz	r3,skip_lf
+	adds	r2,r2,#1		@ tack linefeed on end
+skip_lf:
 
 	@================================
 	@ write stdout
@@ -57,27 +59,44 @@ done:
 	@ string in r1
 	@ len in r2
 write_stdout:
-	push	{r3,r4}
 	movs	r0,#STDOUT
 	movs	r7,#SYSCALL_WRITE
 	swi	#0
-	pop	{r3,r4}
-	bx	lr
 
-        #================================
-        # Exit
-        #================================
-exit:
-	movs	r0,#5
-	movs	r7,#SYSCALL_EXIT	@ put exit syscall number (1) in r7
-	swi	#0			@ and exit
+	subs	r3,r3,#1			@ decrement X
+@	cmp	r3,#79
+	bpl	xloop
 
-green_string:
+	adds	r4,r4,#1			@ increment Y
+
+	@ usleep(30000);
+
+	adds.n	r0,r6,#(time-data_begin)	@ time pointer in r0
+	movs	r1,0				@ NULL
+	movs	r7,#SYSCALL_NANOSLEEP
+	swi	#0
+
+	b	forever_loop
+
+
+
+	@================================
+	@ Exit
+	@================================
+@exit:
+@	movs	r0,#5
+@	movs	r7,#SYSCALL_EXIT	@ put exit syscall number (1) in r7
+@	swi	#0			@ and exit
+
+data_begin:
+
+color_string:
 	.ascii	"\033[40m "
-black_string:
-	.ascii	"\033[42m "
 linefeed:
 	.ascii	"\n"
 
+@ assume we have zeros off the end
 time:
-	.word	0,30000000
+@       00 00 00 00, 00 00 00 02
+@	.lcomm	time,8
+@	.word	0,30000000
