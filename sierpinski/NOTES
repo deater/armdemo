@@ -1,0 +1,11 @@
+gcc 10.2.1
+
+sierpinski	gcc -O2			8152
+		gcc -O2 stripped	5564
+		gcc -Os			8152
+		sstrip			4131	
+
+
+assembly hello world
+	arm sstrip ???/127
+	thumb2	940/111
