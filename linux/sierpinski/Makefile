@@ -7,7 +7,10 @@ THUMBLFLAGS = --thumb-entry=_start
 LDFLAGS = -N --thumb-entry=_start
 ASFLAGS = -mthumb-interwork
 
-all:	sierpinski_raw sierpinski_asm sierpinski sierpinski_tiny
+LOAD_ADDRESS = 0x8000
+
+all:	sierpinski_raw sierpinski_asm sierpinski \
+	sierpinski_elfabuse sierpinski_tiny sierpinski_ea
 
 ###
 
@@ -27,15 +30,32 @@ sierpinski_asm.o:	sierpinski_asm.s
 	$(AS) $(ASFLAGS) -o sierpinski_asm.o sierpinski_asm.s
 
 ###
+
 sierpinski_tiny:	sierpinski_raw
 	objcopy -O binary sierpinski_raw sierpinski_tiny
 
 sierpinski_raw:	sierpinski_raw.o
-	$(LD) $(LDFLAGS) -Ttext=0x10000 -o sierpinski_raw sierpinski_raw.o
+	$(LD) $(LDFLAGS) -Ttext=$(LOAD_ADDRESS) -o sierpinski_raw sierpinski_raw.o
 
 sierpinski_raw.o:	sierpinski_raw.s
 	$(AS) $(ASFLAGS) -o sierpinski_raw.o sierpinski_raw.s
 
+###
+
+sierpinski_ea:	sierpinski_elfabuse
+	objcopy -O binary sierpinski_elfabuse sierpinski_ea
+
+sierpinski_elfabuse:	sierpinski_elfabuse.o
+	$(LD) $(LDFLAGS) -Ttext=$(LOAD_ADDRESS) -o sierpinski_elfabuse sierpinski_elfabuse.o
+
+sierpinski_elfabuse.o:	sierpinski_elfabuse.s
+	$(AS) $(ASFLAGS) -o sierpinski_elfabuse.o sierpinski_elfabuse.s
+
+
+
+###
 
 clean:	
-	rm -f *~ *.o sierpinski_asm sierpinski_raw sierpinski
+	rm -f *~ *.o sierpinski_asm sierpinski_raw sierpinski \
+			sierpinski_elfabuse sierpinski_tiny \
+			sierpinski_ea

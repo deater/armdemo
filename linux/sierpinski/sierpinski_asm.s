@@ -10,6 +10,7 @@
 @ 159 bytes -- don't need to save around syscall
 @ 155 bytes -- use narrow increment
 @ 151 bytes -- countdown X, use cbnz, optimize end of line
+@ 148 bytes -- init time struct separately
 
 .syntax unified
 #.arm
