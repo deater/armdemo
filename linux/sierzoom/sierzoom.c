@@ -9,6 +9,7 @@ int main(int argc, char **argv) {
 	int x,y,frame,color;
 
 	frame=-4096;
+//	frame=-512;
 
 	while(1) {
 		printf("\033[1;1H");

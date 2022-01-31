@@ -2,6 +2,9 @@
 #.arm
 .thumb
 
+
+XWIDTH = 127
+
 @ ELF header
 
 @LOAD_ADDRESS = 0x00010054	@ original load address
@@ -167,7 +170,7 @@ _start:
 	strb	r3,[r6,((time-data_begin)+7)]
 
 forever_loop:
-	movs	r3,#78		@ X
+	movs	r3,#XWIDTH		@ X
 xloop:
 
 	ands	r5,r3,r4		@ X AND Y = the sierpinski magic

@@ -7,7 +7,8 @@ THUMBLFLAGS = --thumb-entry=_start
 LDFLAGS = -N --thumb-entry=_start
 ASFLAGS = -mthumb-interwork
 
-all:	sierzoom_raw sierzoom_asm sierzoom sierzoom_tiny
+all:	sierzoom_asm sierzoom
+
 
 ###
 
@@ -21,7 +22,7 @@ sierzoom.o:	sierzoom.c
 ###
 
 sierzoom_asm:	sierzoom_asm.o
-	$(LD) $(LDFLAGS) -o sierzoom_asm sierzoom_asm.o
+	$(LD) $(LDFLAGS) -Ttext=0x8054 -o sierzoom_asm sierzoom_asm.o
 
 sierzoom_asm.o:	sierzoom_asm.s
 	$(AS) $(ASFLAGS) -o sierzoom_asm.o sierzoom_asm.s
