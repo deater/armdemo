@@ -8,6 +8,8 @@ YHEIGHT = 50
 @ 251 bytes -- clear screen, add desire logo
 @ 246 bytes -- load at 0x8054
 @ 231 bytes -- make a 16-bit encoding pass
+@ 229 bytes -- use r5 instead of r8
+@ 256 bytes -- accidental color change of logo
 
 .syntax unified
 #.arm
@@ -26,16 +28,28 @@ _start:
 	movw	r6,#:lower16:data_begin
 @	movt	r6,#:upper16:data_begin		@ not needed we load to 0x8054
 
-	mov	r8,#-4097			@ fits, unline -4096
+	mov	r5,#-4097			@ fits, unline -4096
 
-	@ clear screen and print desire string
+	@ clear screen and print clear/desire string
 
-	@ r0 already 0
 	movw	r1,#:lower16:dsr_string
 	movs	r2,#28
 	bl	write_stdout
 
+@	movs	r2,#'2'
+@	strb.n	r2,[r6,#(wave_string-data_begin)+3]
+
 forever_loop:
+	and	r2,r5,#0x38
+	lsr	r2,r2,#3
+	add	r2,r2,#(wave_chars-data_begin)
+	ldrb	r2,[r6,r2]
+	strb	r2,[r6,#(wave_string-data_begin)+8]
+
+	@ print desire string
+	adds	r1,r6,#(wave_string-data_begin)
+	movs	r2,#24
+	bl	write_stdout
 
 	adds.n	r1,r6,#7		@ point to home cursor
 	movs	r2,#6
@@ -45,20 +59,20 @@ forever_loop:
 yloop:
 	movs	r3,#0		@ X
 xloop:
-	mul	r2,r3,r8		@ X * frame
+	mul	r2,r3,r5		@ X * frame
 	sub	r2,r4,r2, ASR #8	@ Y - (x*frame)/256
-	mul	r5,r4,r8		@ Y * frame
-	add	r5,r3,r5, ASR #8	@ X + (y*frame)/256
-	ands	r2,r2,r5
+	mul	r7,r4,r5		@ Y * frame
+	add	r7,r3,r7, ASR #8	@ X + (y*frame)/256
+	ands	r2,r2,r7
 
 	ands	r2,#0xf0		@ color
 
 	ite	eq
-	moveq	r5,#'2'			@ green if color=0
-	movne	r5,#'0'			@ black else
+	moveq	r7,#'2'			@ green if color=0
+	movne	r7,#'0'			@ black else
 
 	movs	r1,r6
-	strb	r5,[r1,3]		@ patch string with 2/0
+	strb	r7,[r1,3]		@ patch string with 2/0
 
 	lsrs	r2,#4
 	adds	r2,r2,#' '
@@ -81,7 +95,7 @@ skip_lf:
 	cmp	r4,#YHEIGHT
 	bne	yloop
 
-	add	r8,r8,#8
+	adds	r5,r5,#8			@ update frame
 
 
 	b	forever_loop
@@ -92,7 +106,7 @@ skip_lf:
 	@ string in r1
 	@ len in r2
 write_stdout:
-	movs	r0,#STDOUT
+	mov	r0,#STDOUT
 	movs	r7,#SYSCALL_WRITE
 	swi	#0
 	blx	lr
@@ -106,8 +120,11 @@ linefeed:
 clear_string:
 	.ascii	"\033[1;1H"
 
-@wave_string:
-@	.ascii " .:'!|!':. "
+wave_chars:
+	.ascii " .:'!|!':. "
+
 dsr_string:
 	@ 113/2 = 56
-	.ascii "\033[2J\033[53;56H- d e s i r e -\n"
+	.ascii "\033[2J"
+wave_string:
+	.ascii "\033[52;55H - d e s i r e -"
