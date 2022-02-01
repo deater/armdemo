@@ -7,7 +7,7 @@ THUMBLFLAGS = --thumb-entry=_start
 LDFLAGS = -N --thumb-entry=_start
 ASFLAGS = -mthumb-interwork
 
-all:	sierzoom_asm sierzoom
+all:	sierzoom_asm sierzoom sierzoom_slow
 
 
 ###
@@ -17,6 +17,15 @@ sierzoom:	sierzoom.o
 
 sierzoom.o:	sierzoom.c
 	$(CC) $(CFLAGS) -c sierzoom.c
+
+###
+
+sierzoom_slow:	sierzoom_slow.o
+	$(CC) $(LFLAGS) -o sierzoom_slow sierzoom_slow.o
+
+sierzoom_slow.o:	sierzoom_slow.c
+	$(CC) -g -O0 -Wall -c sierzoom_slow.c
+
 
 
 ###
@@ -39,4 +48,4 @@ sierzoom_raw.o:	sierzoom_raw.s
 
 
 clean:	
-	rm -f *~ *.o sierzoom_asm sierzoom_raw sierzoom_tiny sierzoom
+	rm -f *~ *.o sierzoom_asm sierzoom_raw sierzoom_tiny sierzoom sierzoom_slow

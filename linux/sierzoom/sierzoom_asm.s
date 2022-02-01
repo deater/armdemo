@@ -14,6 +14,8 @@ YHEIGHT = 50
 @ 272 bytes -- write a whole line at time (num syscalls / 128)
 @		doing this because we were too slow on Linux console
 @		oddly it ran much faster over network
+@ 254 bytes -- repotimize, fit in low registers, avoid strcat() call at start
+@ 240 bytes -- optimize back to all fit in 8 registers
 
 .syntax unified
 #.arm
@@ -27,55 +29,63 @@ YHEIGHT = 50
 .equ STDOUT,1
 .equ STDERR,2
 
+@ register allocation
+@ r0 = length to strcat()
+@ r1 = input to strcat()
+@ r2 = out_buffer length
+@ r3 = X
+@ r4 = Y
+@ r5 = frame
+@ r6 = out_buffer pointer
+@ r7 = temp
+
         .globl _start
 _start:
-	movw	r6,#:lower16:data_begin
-@	movt	r6,#:upper16:data_begin		@ not needed we load to 0x8054
+	movw	r6,#:lower16:out_buffer		@ don't need to load top
+						@ as we live below 0x10000
 
-	mov	r5,#-4097			@ fits, unline -4096
+	mov	r5,#-4097			@ fits, unlike -4096
 
-	@ clear screen and print clear/desire string
+	@ start with clear_screen in string buffer
 
-	movw	r1,#:lower16:clear_string
-	movs	r2,#33
-	bl	strcat
+	movs	r2,#4
 
 forever_loop:
 
 	@ print desire string
-@	adds	r1,r6,#(wave_string-data_begin)
-	adds	r1,r6,#(dsr_string-data_begin)
-	movs	r2,#32
+@	adds	r1,r6,#(dsr_string-data_begin)
+	movw	r1,#:lower16:dsr_string
+	movs	r0,#32
 	bl	strcat
 
 	movs	r4,#0		@ init Y
 yloop:
 	movs	r3,#0		@ init X
 xloop:
-	mul	r2,r3,r5		@ X * frame
-	sub	r2,r4,r2, ASR #8	@ Y - (x*frame)/256
+	mul	r0,r3,r5		@ X * frame
+	sub	r0,r4,r0, ASR #8	@ Y - (x*frame)/256
 	mul	r7,r4,r5		@ Y * frame
 	add	r7,r3,r7, ASR #8	@ X + (y*frame)/256
-	ands	r2,r2,r7
+	ands	r0,r0,r7
 
-	ands	r2,#0xf0		@ color
+	ands	r0,#0xf0		@ color
 
 	ite	eq
 	moveq	r7,#'2'			@ green if color=0
 	movne	r7,#'0'			@ black else
 
-	movs	r1,r6
+	movw	r1,#:lower16:color_string
 	strb	r7,[r1,3]		@ patch string with 2/0
 
-	lsrs	r2,#4
-	adds	r2,r2,#' '
-	strb	r2,[r1,5]		@ patch output char
+	lsrs	r0,#4
+	adds	r0,r0,#' '
+	strb	r0,[r1,5]		@ patch output char
 
-	movs	r2,#6			@ length in r2
+	movs	r0,#6			@ length in r0
 
 	cmp	r3,#XWIDTH-1
 	bne	skip_lf
-	adds	r2,r2,#1		@ tack linefeed on end
+	adds	r0,r0,#1		@ tack linefeed on end
 skip_lf:
 
 	bl	strcat
@@ -88,15 +98,14 @@ skip_lf:
 	@ write stdout
 	@================================
 	@ string in r1
-	@ len in r2
+	@ len in r0
 write_stdout:
-	mov	r2,r0
-	mov	r0,#STDOUT
-	movw	r1,#:lower16:out_buffer
+	movs	r0,#STDOUT
+	mov	r1,r6
 	movs	r7,#SYSCALL_WRITE
 	swi	#0
 
-	mov	r0,#0
+	movs	r2,#0				@ clear strcat count
 
 	adds	r4,r4,#1			@ increment Y
 	cmp	r4,#YHEIGHT
@@ -109,22 +118,17 @@ write_stdout:
 	@================================
 	@ strcat
 	@================================
+	@ len in r0
 	@ string in r1
-	@ len in r2
 strcat:
-	push	{r3,r4}
-	movs	r3,#0
-	movw	r4,#:lower16:out_buffer
-strcat_loop:
-	ldrb	r7,[r1,r3]
-	strb	r7,[r4,r0]
-	adds	r3,r3,#1
-	adds	r0,r0,#1
-	subs	r2,r2,#1
-	bne	strcat_loop
-	pop	{r3,r4}
-	blx	lr
 
+strcat_loop:
+	ldrb	r7,[r1],1		@ load input, then increment r1 after
+	strb	r7,[r6,r2]		@ store to out_buffer+r2
+	adds	r2,r2,#1
+	subs	r0,r0,#1
+	bne	strcat_loop
+	blx	lr
 
 data_begin:
 
@@ -132,11 +136,10 @@ color_string:
 	.ascii	"\033[40m "		@ 0
 linefeed:
 	.ascii	"\n"			@ 6
-clear_string:
-	.ascii "\033[2J"		@ 7
 dsr_string:
 	@ 113/2 = 56
 	@ 32 bytes long
 	.ascii "\033[52;55H- d e s i r e -\033[1;1H"
 
 out_buffer:
+	.ascii "\033[2J"		@ 4 long
