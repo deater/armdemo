@@ -6,9 +6,21 @@ LFLAGS =
 THUMBLFLAGS = --thumb-entry=_start
 LDFLAGS = -N --thumb-entry=_start
 ASFLAGS = -mthumb-interwork
+SSTRIP = ../../sstrip/sstrip
 
 all:	sierzoom_asm sierzoom sierzoom_slow
 
+###
+
+submit:	sierzoom.zip
+
+sierzoom.zip:	sierzoom_asm sierzoom_asm.s file_id.diz
+	mkdir -p lovebyte2022_sierzoom_256
+	cp sierzoom_asm ./lovebyte2022_sierzoom_256
+	cp sierzoom_asm.s ./lovebyte2022_sierzoom_256
+	cp file_id.diz ./lovebyte2022_sierzoom_256
+	cp sierzoom_720p.mp4 ./lovebyte2022_sierzoom_256
+	zip -r sierzoom.zip lovebyte2022_sierzoom_256
 
 ###
 
@@ -30,22 +42,16 @@ sierzoom_slow.o:	sierzoom_slow.c
 
 ###
 
-sierzoom_asm:	sierzoom_asm.o
+sierzoom_asm:	sierzoom_asm_elf
+	$(SSTRIP) sierzoom_asm
+
+sierzoom_asm_elf:	sierzoom_asm.o
 	$(LD) $(LDFLAGS) -Ttext=0x8054 -o sierzoom_asm sierzoom_asm.o
+	cp sierzoom_asm sierzoom_asm_elf
 
 sierzoom_asm.o:	sierzoom_asm.s
 	$(AS) $(ASFLAGS) -o sierzoom_asm.o sierzoom_asm.s
 
-###
-sierzoom_tiny:	sierzoom_raw
-	objcopy -O binary sierzoom_raw sierzoom_tiny
-
-sierzoom_raw:	sierzoom_raw.o
-	$(LD) $(LDFLAGS) -Ttext=0x10000 -o sierzoom_raw sierzoom_raw.o
-
-sierzoom_raw.o:	sierzoom_raw.s
-	$(AS) $(ASFLAGS) -o sierzoom_raw.o sierzoom_raw.s
-
 
 clean:	
-	rm -f *~ *.o sierzoom_asm sierzoom_raw sierzoom_tiny sierzoom sierzoom_slow
+	rm -f *~ *.o sierzoom_asm sierzoom sierzoom_slow
