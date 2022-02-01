@@ -14,12 +14,13 @@ all:	sierzoom_asm sierzoom sierzoom_slow
 
 submit:	sierzoom.zip
 
-sierzoom.zip:	sierzoom_asm sierzoom_asm.s file_id.diz
+sierzoom.zip:	sierzoom_asm.s file_id.diz
 	mkdir -p lovebyte2022_sierzoom_256
 	cp sierzoom_asm ./lovebyte2022_sierzoom_256
 	cp sierzoom_asm.s ./lovebyte2022_sierzoom_256
 	cp file_id.diz ./lovebyte2022_sierzoom_256
 	cp sierzoom_720p.mp4 ./lovebyte2022_sierzoom_256
+	cp sierzoom_arm.jpg ./lovebyte2022_sierzoom_256
 	zip -r sierzoom.zip lovebyte2022_sierzoom_256
 
 ###
@@ -54,4 +55,4 @@ sierzoom_asm.o:	sierzoom_asm.s
 
 
 clean:	
-	rm -f *~ *.o sierzoom_asm sierzoom sierzoom_slow
+	rm -f *~ *.o sierzoom sierzoom_slow

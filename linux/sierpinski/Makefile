@@ -6,11 +6,25 @@ LFLAGS =
 THUMBLFLAGS = --thumb-entry=_start
 LDFLAGS = -N --thumb-entry=_start
 ASFLAGS = -mthumb-interwork
+SSTRIP = ../../sstrip/sstrip
 
 LOAD_ADDRESS = 0x8000
 
 all:	sierpinski_raw sierpinski_asm sierpinski \
 	sierpinski_elfabuse sierpinski_tiny sierpinski_ea
+
+###
+
+submit:	thumbpinski.zip
+
+thumbpinski.zip:	sierpinski_elfabuse.s file_id.diz
+	mkdir -p lovebyte2022_thumbpinski_128
+	cp sierpinski_ea ./lovebyte2022_thumbpinski_128
+	cp sierpinski_elfabuse.s ./lovebyte2022_thumbpinski_128
+	cp file_id.diz ./lovebyte2022_thumbpinski_128
+	cp thumbpinski_720p.mp4 ./lovebyte2022_thumbpinski_128
+	cp thumbpinski.jpg ./lovebyte2022_thumbpinski_128
+	zip -r thumbpinski.zip lovebyte2022_thumbpinski_128
 
 ###
 

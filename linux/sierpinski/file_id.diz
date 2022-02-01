@@ -1,0 +1,19 @@
+Thumbpinski
+-
+Purple Sierpinski 
+128-byte Intro for Raspberry Pi/Linux
+
+by Deater / dSr
+
+The ELF header on ARM Linux is 84 bytes which makes tiny intros difficult.
+Here we use some tricks to make things smaller, including moving code into
+some quasi-unused parts of the header itself.  This still runs fine, but
+readelf complains and gdb won't touch the file.
+The techniques used are based on those found here:
+	https://nathanotterness.com/2021/10/tiny_elf_modernized.html
+
+Runs on a Thumb2 capable Raspberry Pi (Pi2 or newer).  The video
+was recorded on a Pi4.
+
+Generates console ANSI sequences to generate the graphics.  Works best
+if terminal is at least 128 characters wide.

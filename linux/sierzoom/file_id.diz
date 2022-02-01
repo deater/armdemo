@@ -1,0 +1,17 @@
+Sierzoom Thumb2
+-
+Sierpinski Rotozoomer
+240-byte Intro for Raspberry Pi/Linux
+
+by Deater / dSr
+
+Roughly based on some code from Hellmood's memories.
+Runs on Linux on a Thumb2 capable Raspberry Pi (pi2 or newer)
+This capture was done on a Pi4.
+
+Runs in text mode, it's writing ANSI escape sequences to the framebuffer.
+Executable is stripped to bare minimum with the "sstrip" program, but
+a full valid 84 byte ELF header is still there.
+
+Will run fine in an xterm / over network too, for best results terminal
+should be 128x52 or greater.
