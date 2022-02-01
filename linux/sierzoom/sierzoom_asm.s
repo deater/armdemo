@@ -10,6 +10,10 @@ YHEIGHT = 50
 @ 231 bytes -- make a 16-bit encoding pass
 @ 229 bytes -- use r5 instead of r8
 @ 256 bytes -- accidental color change of logo
+@ 232 bytes -- rip out the attempt at animated wave
+@ 272 bytes -- write a whole line at time (num syscalls / 128)
+@		doing this because we were too slow on Linux console
+@		oddly it ran much faster over network
 
 .syntax unified
 #.arm
@@ -32,32 +36,21 @@ _start:
 
 	@ clear screen and print clear/desire string
 
-	movw	r1,#:lower16:dsr_string
-	movs	r2,#28
-	bl	write_stdout
-
-@	movs	r2,#'2'
-@	strb.n	r2,[r6,#(wave_string-data_begin)+3]
+	movw	r1,#:lower16:clear_string
+	movs	r2,#33
+	bl	strcat
 
 forever_loop:
-	and	r2,r5,#0x38
-	lsr	r2,r2,#3
-	add	r2,r2,#(wave_chars-data_begin)
-	ldrb	r2,[r6,r2]
-	strb	r2,[r6,#(wave_string-data_begin)+8]
 
 	@ print desire string
-	adds	r1,r6,#(wave_string-data_begin)
-	movs	r2,#24
-	bl	write_stdout
+@	adds	r1,r6,#(wave_string-data_begin)
+	adds	r1,r6,#(dsr_string-data_begin)
+	movs	r2,#32
+	bl	strcat
 
-	adds.n	r1,r6,#7		@ point to home cursor
-	movs	r2,#6
-	bl	write_stdout
-
-	movs	r4,#0		@ Y
+	movs	r4,#0		@ init Y
 yloop:
-	movs	r3,#0		@ X
+	movs	r3,#0		@ init X
 xloop:
 	mul	r2,r3,r5		@ X * frame
 	sub	r2,r4,r2, ASR #8	@ Y - (x*frame)/256
@@ -85,20 +78,11 @@ xloop:
 	adds	r2,r2,#1		@ tack linefeed on end
 skip_lf:
 
-	bl	write_stdout
+	bl	strcat
 
 	adds	r3,r3,#1			@ decrement X
 	cmp	r3,#XWIDTH
 	bne	xloop
-
-	adds	r4,r4,#1			@ increment Y
-	cmp	r4,#YHEIGHT
-	bne	yloop
-
-	adds	r5,r5,#8			@ update frame
-
-
-	b	forever_loop
 
 	@================================
 	@ write stdout
@@ -106,25 +90,53 @@ skip_lf:
 	@ string in r1
 	@ len in r2
 write_stdout:
+	mov	r2,r0
 	mov	r0,#STDOUT
+	movw	r1,#:lower16:out_buffer
 	movs	r7,#SYSCALL_WRITE
 	swi	#0
+
+	mov	r0,#0
+
+	adds	r4,r4,#1			@ increment Y
+	cmp	r4,#YHEIGHT
+	bne	yloop
+
+	adds	r5,r5,#8			@ update frame
+
+	b	forever_loop
+
+	@================================
+	@ strcat
+	@================================
+	@ string in r1
+	@ len in r2
+strcat:
+	push	{r3,r4}
+	movs	r3,#0
+	movw	r4,#:lower16:out_buffer
+strcat_loop:
+	ldrb	r7,[r1,r3]
+	strb	r7,[r4,r0]
+	adds	r3,r3,#1
+	adds	r0,r0,#1
+	subs	r2,r2,#1
+	bne	strcat_loop
+	pop	{r3,r4}
 	blx	lr
+
 
 data_begin:
 
 color_string:
-	.ascii	"\033[40m "
+	.ascii	"\033[40m "		@ 0
 linefeed:
-	.ascii	"\n"
+	.ascii	"\n"			@ 6
 clear_string:
-	.ascii	"\033[1;1H"
-
-wave_chars:
-	.ascii " .:'!|!':. "
-
+	.ascii "\033[2J"		@ 7
 dsr_string:
 	@ 113/2 = 56
-	.ascii "\033[2J"
-wave_string:
-	.ascii "\033[52;55H - d e s i r e -"
+	@ 32 bytes long
+	.ascii "\033[52;55H- d e s i r e -\033[1;1H"
+
+out_buffer:
