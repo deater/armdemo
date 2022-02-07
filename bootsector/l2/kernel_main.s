@@ -3,6 +3,8 @@
 @ bare-metal assembly code
 @ for ARM1176 based Raspberry Pi Systems
 
+@ based on vmwOS, also using PiFox as a reference
+
 .global _start
 
 .include "pi.inc"
@@ -112,6 +114,31 @@ mailbox_read_done:
 
 	@ TODO: set up sound
 
+	@==========================
+	@ clear framebuffer to blue
+
+	ldr	r0, =offscreen_framebuffer
+	ldr	r1, =0x00ff0000
+	ldr	r2, =640 * 480* 4
+clear_loop:
+	str	r1,[r0,r2]
+	subs	r2, r2, #4
+	bne	clear_loop
+
+	@==========================
+	@ copy our framebuffer to
+	@ the firmware one
+
+	ldr	r0, =fb_struct
+	ldr	r0, [r0, #0x20]		@ get address of framebuffer
+	ldr	r1, =offscreen_framebuffer
+	eor	r2,r2,r2
+copy_loop:
+	ldr	r3,[r1,r2]
+	str	r3,[r0,r2]
+	add	r2,r2,#4
+	cmp	r2, #(640 * 480)*4
+	bne	copy_loop
 forever:
 	wfe			@ low-power wait forever
 	b	forever
@@ -135,3 +162,7 @@ fb_struct:
 	.int 0		@ 0x20: Address
 	.int 0		@ 0x24: Size
 .align 2
+
+.section bss
+
+.lcomm	offscreen_framebuffer,640*480*4
