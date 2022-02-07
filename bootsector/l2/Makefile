@@ -24,7 +24,7 @@ kernel.elf:	kernel_main.arm1176.o
 	$(CROSS)ld $(LFLAGS) \
 		kernel_main.arm1176.o -Map kernel.map -o kernel.elf
 
-kernel_main.arm1176.o:	kernel_main.s
+kernel_main.arm1176.o:	kernel_main.s pi.inc
 	$(CROSS)$(AS) $(ASFLAGS_ARM1176) $(INCLUDE) \
 		-o kernel_main.arm1176.o -c kernel_main.s
 
