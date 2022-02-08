@@ -230,17 +230,18 @@ drop_loop:
 	add	r2,r2,r3		@ r2=A+B+D
 	ldrb	r3,[r1,#-640]		@ load C
 	add	r2,r2,r3		@ r2=A+B+C+D
-@	lsr	r2,r2,#1		@ r2=(A+B+C+D)/2
+	lsr	r2,r2,#1		@ r2=(A+B+C+D)/2
 
 	ldrb	r3,[r7]			@ load OLD_V
-@	subs	r2,r2,r3		@ r2=(A+B+C+D)/2 - OLD_V
-	rsb	r2,r3,r2,lsr #1		@ r2=(A+B+C+D)/2 - OLD_V
+	subs	r2,r2,r3		@ r2=(A+B+C+D)/2 - OLD_V
+@	rsb	r2,r3,r2,lsr #1		@ r2=(A+B+C+D)/2 - OLD_V
 	eormi	r2,r2,#0xff		@ if negative, invert V
-	strb	r2,[r7],#1		@ save, increment r7
+@	strb	r2,[r7],#1		@ save, increment r7
+	strb	r2,[r7]			@ save, increment r7
 
 
 	add	r1,r1,#1
-@	add	r7,r7,#1
+	add	r7,r7,#1
 	cmp	r1,r9
 	blt	drop_loop
 
