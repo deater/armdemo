@@ -13,6 +13,7 @@
 @ 544 bytes -- initial sorta working
 @ 532 bytes -- combine some operations
 @ 520 bytes -- make clear framebuffer THUMB
+@ 512 bytes -- init pointers with adds rather than =
 
 @ Register allocations
 @ R0 =	temp			R8=
@@ -147,6 +148,22 @@ setup_dcache:
 
 	@ TODO: set up sound
 
+
+	@=========================================
+	@=========================================
+	@ main program
+	@=========================================
+	@=========================================
+
+main_program:
+	@ init memory pointers
+
+	ldr	r9,=palette
+	add	r10,r9,#256*4			@ setup framebuffer 1
+@	ldr	r10,=offscreen_framebuffer1	@ setup framebuffer 1
+@	ldr	r11,=offscreen_framebuffer2	@ setup framebuffer 2
+	add	r11,r10,#(640*480)		@ setup framebuffer 2
+
 	@ setup palette
 
 	ldr	r4, =palette		@ index negative to this?
@@ -161,10 +178,7 @@ pal_setup_loop:
 	bne	pal_setup_loop
 
 	@========================
-	@ setup both framebuffers
-
-	ldr	r10,=offscreen_framebuffer1
-	ldr	r11,=offscreen_framebuffer2
+	@ clear both framebuffers
 
 	mov	r0,r10
 	blx	clear_framebuffer
@@ -182,8 +196,8 @@ putpixel:
 	@ get random Y
 try_again_y:
 	bl	random16	@ Y result in r3
-	ldr	r9,=511
-	and	r3,r3,r9
+	ldr	r5,=511
+	and	r3,r3,r5
 	cmp	r3,#480
 	bge	try_again_y
 
@@ -192,17 +206,16 @@ try_again_y:
 
 	@ get random X
 try_again_x:
-	bl	random16
-	ldr	r9,=1023
-	and	r3,r3,r9
+	bl	random16	@ get random number <640
+	ldr	r5,=1023
+	and	r3,r3,r5
 	cmp	r3,#640
 	bge	try_again_x
 
 	add	r8,r8,r3	@ +X
 
-@	mov	r0, r10			@ current_framebuffer
-	mov	r1,#0xff
-	strb	r1,[r10,r8]
+	mov	r1,#0xff		@ put white pixel
+	strb	r1,[r10,r8]		@ current_framebuffer+(640*y)+x
 
 
 	@==========================
@@ -216,8 +229,8 @@ try_again_x:
 
 	mov	r1, r10			@ current_framebuffer
 	add	r1,r1,#640
-	ldr	r9,=(640*478)
-	add	r9,r1,r9
+	ldr	r5,=(640*478)
+	add	r5,r1,r5
 
 	mov	r7, r11			@ output_framebuffer
 	add	r7,r7,#640
@@ -242,7 +255,7 @@ drop_loop:
 
 	add	r1,r1,#1
 	add	r7,r7,#1
-	cmp	r1,r9
+	cmp	r1,r5
 	blt	drop_loop
 
 	@==========================
@@ -273,7 +286,6 @@ copy_loop:
 
 
 random16:
-
 	ldr	r4,=random_seed
 	ldr	r3,[r4]
 	eor	r3,r3,r3,lsl #7
@@ -283,8 +295,8 @@ random16:
 
 	blx	lr
 
-random_seed:
-	.word	0x7657
+random_seed:				@ FIXME: can be arbitary value
+	.word	0x7657			@ so can just grab some init code?
 
 .thumb
 	@==========================
@@ -294,7 +306,6 @@ clear_framebuffer:
 	mov	r1,#0
 clear_loop:
 	strb	r1,[r0,r2]
-@	subs	r2, #1
 	sub	r2, #1		@ in thumb mode, S is assumed?
 	bne	clear_loop
 
