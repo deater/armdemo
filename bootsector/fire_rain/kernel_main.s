@@ -71,9 +71,9 @@ kernel:
 	@ this way of allocating the mailbox has been
 	@ deprecated in newer firmwares
 
-	ldr	r0, =0x1		@ firmware channel
+@	ldr	r0, =0x1		@ firmware channel
 	ldr	r12, =fb_struct		@ point to request struct
-	orr	r1, r12,#0x40000000		@ convert to GPU address
+	orr	r1, r12,#0x40000001		@ convert to GPU address
 @	ldr	r1, =(fb_struct+0x40000000)
 					@ FIXME: combine these to one load?
 
@@ -101,7 +101,8 @@ mailbox_write_ready_loop:		@ timeout if mailbox never is ready
 
 	@ Send message
 	mcr	p15, #0, r3, c7, c10, #5	@ DMB (data memory barrier)
-	orr	r1, r0, r1			@ put channel in address
+	@ assume  firmware channel 1
+@	orr	r1, r1, #1			@ put channel in address
 	str	r1, [r2, #OFFSET_MAILBOX_WRITE]	@ write to mailbox
 
 mailbox_write_done:
@@ -111,7 +112,7 @@ mailbox_write_done:
 	@==================
 
 mailbox_read:
-	ldr	r2, =MAILBOX_BASE
+@	ldr	r2, =MAILBOX_BASE		@ already set
 
 @	eor	r4, r4, r4			@ clear timeout value
 						@ let's just assume
@@ -169,11 +170,22 @@ setup_dcache:
 main_program:
 	@ init memory pointers
 
-	mov	r6,#64				@ frame count
+	mov	r6,#128				@ frame count
 	mov	r8,#640*480
 	ldr	r9,=palette
 	add	r10,r9,#256*4			@ setup framebuffer 1
 	add	r11,r10,#(640*480)		@ setup framebuffer 2
+
+
+
+	@========================
+	@ clear both framebuffers
+
+	mov	r0,r10
+	blx	clear_framebuffer
+
+	mov	r0,r11
+	blx	clear_framebuffer
 
 
 	@=================
@@ -182,7 +194,8 @@ main_program:
 
 	@ setup blues
 setup_palette:
-	eor	r2,r2,r2		@ count
+	@ r2 is 0 from the clear_framebuffer
+@	eor	r2,r2,r2		@ count
 	mov	r3,#0x80		@ color
 pal_setup_loop:
 	cmp	r2,#56
@@ -196,14 +209,7 @@ pal_setup_loop:
 
 @	ldr	r9,=devel_pal
 
-	@========================
-	@ clear both framebuffers
 
-	mov	r0,r10
-	blx	clear_framebuffer
-
-	mov	r0,r11
-	blx	clear_framebuffer
 
 
 	@======================
@@ -236,11 +242,11 @@ doom_fire:
 
 	sub	r5,r8,#640		@ setup end to row 479
 
-	mov	r4,#200*640		@ start at Y=200
+	mov	r4,#240*640		@ start at Y=240
 fire_loop:
 
 	@ r=rand()&7;
-	mov	r0,#8		@ will decrement
+	mov	r0,#8		@ will decrement to 7
 	mov	r1,#8
 	bl	random16	@ r result in r3
 
@@ -255,6 +261,8 @@ fire_loop:
 	add	r0,r4,#640
 	ldrb	r0,[r11,r0]	@ load value
 	cmp	r3,#2
+@	mov	r3,#1
+@	qsublt	r0,r0,r3
 	submis	r0,r0,#1
 	@ if (newcol<0) newcol=0;
 	movmi	r0,#0
@@ -387,20 +395,6 @@ random16:
 @random_seed:				@ FIXME: can be arbitary value
 @	.word	0x7657			@ so can just grab some init code?
 
-.thumb
-	@==========================
-	@ clear framebuffer
-clear_framebuffer:
-	mov	r2,r8			@ 640*480
-	mov	r1,#0			@ clear to zero
-clear_loop:
-	strb	r1,[r0,r2]
-	sub	r2, #1		@ in thumb mode, S is assumed?
-	bne	clear_loop
-
-	blx	lr
-.arm
-
 
 @==============================
 @ Framebuffer request structure
@@ -420,6 +414,23 @@ random_seed:
 	.int 0		@ 0x20: Address
 	.int 0		@ 0x24: Size
 .align 2
+
+.thumb
+	@==========================
+	@ clear framebuffer
+clear_framebuffer:
+	mov	r2,r8			@ 640*480
+	mov	r1,#0			@ clear to zero
+clear_loop:
+	strb	r1,[r0,r2]
+	sub	r2, #1		@ in thumb mode, S is assumed?
+	bne	clear_loop
+
+	blx	lr
+.arm
+
+
+
 
 .section bss
 .lcomm	palette,256*4
