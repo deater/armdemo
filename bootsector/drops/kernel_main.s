@@ -14,13 +14,17 @@
 @ 532 bytes -- combine some operations
 @ 520 bytes -- make clear framebuffer THUMB
 @ 512 bytes -- init pointers with adds rather than =
+@ 504 bytes -- optimize random number gen
+@ 488 bytes -- more optimization of main loop
+@ 476 bytes -- put 640*480 in a reg and use it
+@ 456 bytes -- reusing the fb_struct 640 as the random number seed
 
 @ Register allocations
-@ R0 =	temp			R8=
-@ R1 =	temp			R9=  palette?
+@ R0 =	temp			R8=  640*480
+@ R1 =	temp			R9=  palette
 @ R2 =	temp			R10= framebuffer1
 @ R3 =	temp			R11= framebuffer2
-@ R4 =	temp			R12= fb_struct?
+@ R4 =	temp			R12= fb_struct/random_seed
 @ R5 =	free			R13= Stack
 @ R6 =	free			R14= Link Register
 @ R7 =				R15= PC
@@ -63,9 +67,9 @@ kernel:
 	@ deprecated in newer firmwares
 
 	ldr	r0, =0x1		@ firmware channel
-@	ldr	r1, =fb_struct		@ point to request struct
-@	orr	r1, #0x40000000		@ convert to GPU address
-	ldr	r1, =(fb_struct+0x40000000)
+	ldr	r12, =fb_struct		@ point to request struct
+	orr	r1, r12,#0x40000000		@ convert to GPU address
+@	ldr	r1, =(fb_struct+0x40000000)
 					@ FIXME: combine these to one load?
 
 	@==================
@@ -160,6 +164,7 @@ setup_dcache:
 main_program:
 	@ init memory pointers
 
+	mov	r8,#640*480
 	ldr	r9,=palette
 	add	r10,r9,#256*4			@ setup framebuffer 1
 	add	r11,r10,#(640*480)		@ setup framebuffer 2
@@ -197,32 +202,24 @@ plot_loop:
 	@ put drop
 
 	@ get random Y (<480)
-try_again_y:
+
 	mov	r0,#512		@ will decrement
 	mov	r1,#480
 	bl	random16	@ Y result in r3
 
-@	and	r3,r3,r5
-@	cmp	r3,#480
-@	bge	try_again_y
-
 	mov	r7,#640		@ Y*640
-	mul	r8,r3,r7
+	mul	r5,r3,r7
 
 	@ get random X (<640)
-try_again_x:
+
 	mov	r0,#1024
 	mov	r1,#640
 	bl	random16	@ get random number <640
-@	ldr	r5,=1023
-@	and	r3,r3,r5
-@	cmp	r3,#640
-@	bge	try_again_x
 
-	add	r8,r8,r3	@ +X
+	add	r5,r5,r3	@ +X
 
-	mov	r1,#0xff		@ put white pixel
-	strb	r1,[r10,r8]		@ current_framebuffer+(640*y)+x
+	mov	r1,#0xff	@ put white pixel
+	strb	r1,[r10,r5]	@ current_framebuffer+(640*y)+x
 
 
 	@==========================
@@ -234,13 +231,11 @@ try_again_x:
 	@ calculate color as NEW_V = (A+B+C+D)/2 - OLD_V
 	@		if NEW_V<0 V=-V
 
-	mov	r1, r10			@ current_framebuffer
-	add	r1,r1,#640
-	ldr	r5,=(640*478)
-	add	r5,r1,r5
+	add	r1,r10,#640		@ r1=point to current framebuffer
+	add	r5,r10,r8		@ point r5 to end
+	add	r5,r5,#-640		@ r5=ending location (1 line from end)
 
-	mov	r7, r11			@ output_framebuffer
-	add	r7,r7,#640
+	add	r7,r11,#640		@ r7=point to output framebuffer
 
 drop_loop:
 	ldrb	r2,[r1,#-1]		@ load A
@@ -250,39 +245,32 @@ drop_loop:
 	add	r2,r2,r3		@ r2=A+B+D
 	ldrb	r3,[r1,#-640]		@ load C
 	add	r2,r2,r3		@ r2=A+B+C+D
-	lsr	r2,r2,#1		@ r2=(A+B+C+D)/2
 
 	ldrb	r3,[r7]			@ load OLD_V
-	subs	r2,r2,r3		@ r2=(A+B+C+D)/2 - OLD_V
-@	rsb	r2,r3,r2,lsr #1		@ r2=(A+B+C+D)/2 - OLD_V
+	rsbs	r2,r3,r2,lsr #1		@ r2=(A+B+C+D)/2 - OLD_V
 	eormi	r2,r2,#0xff		@ if negative, invert V
-@	strb	r2,[r7],#1		@ save, increment r7
-	strb	r2,[r7]			@ save, increment r7
-
+	strb	r2,[r7],#1		@ save, increment r7
 
 	add	r1,r1,#1
-	add	r7,r7,#1
 	cmp	r1,r5
 	blt	drop_loop
 
 	@==========================
 	@ copy our framebuffer to
-	@ the firmware one
+	@ the firmware one, use palette
 
-	ldr	r0, =fb_struct
-	ldr	r0, [r0, #0x20]		@ get address of framebuffer
+	ldr	r0, [r12, #0x20]	@ get address of GPU framebuffer
 
-	ldr	r4, =palette		@ index negative to this?
-
-	mov	r1, r10
-	eor	r2,r2,r2
+	mov	r2,r8			@ backwards from end
+					@ NOTE: we read/write one word past
+					@ end of framebuffer to save 4 bytes
+					@ is that OK?
 copy_loop:
-	ldrb	r3,[r1,r2]		@ FIXME: auto-update addr mode
-	ldr	r3,[r4,r3,asl #2]	@ lookup color in palette
-	str	r3,[r0,r2,asl #2]
-	add	r2,r2,#1
-	cmp	r2, #(640 * 480)
-	bne	copy_loop
+	ldrb	r3,[r10,r2]		@ read from current framebuffer
+	ldr	r3,[r9,r3,asl #2]	@ lookup color in palette
+	str	r3,[r0,r2,asl #2]	@ store to GPU
+	subs	r2,r2,#1		@ work backwards
+	bpl	copy_loop
 
 	@ swap r10 and r11
 	mov	r0,r10
@@ -298,15 +286,14 @@ copy_loop:
 	@	r0=mask+1
 	@	r1=max
 	@
-	@ r3=result, r4 trashed
+	@ r3=result
 random16:
 	sub	r0,r0,#1
-	ldr	r4,=random_seed
-	ldr	r3,[r4]
+	ldr	r3,[r12]		@ load random seed
 	eor	r3,r3,r3,lsl #7
 	eor	r3,r3,r3,lsr #9
 	eor	r3,r3,r3,lsl #8
-	str	r3,[r4]
+	str	r3,[r12]		@ store out to random seed
 
 	and	r3,r3,r0
 	cmp	r3,r1
@@ -314,15 +301,15 @@ random16:
 
 	blx	lr
 
-random_seed:				@ FIXME: can be arbitary value
-	.word	0x7657			@ so can just grab some init code?
+@random_seed:				@ FIXME: can be arbitary value
+@	.word	0x7657			@ so can just grab some init code?
 
 .thumb
 	@==========================
 	@ clear framebuffer
 clear_framebuffer:
-	ldr	r2, =640 * 480
-	mov	r1,#0
+	mov	r2,r8			@ 640*480
+	mov	r1,#0			@ clear to zero
 clear_loop:
 	strb	r1,[r0,r2]
 	sub	r2, #1		@ in thumb mode, S is assumed?
@@ -338,6 +325,7 @@ clear_loop:
 
 .align 4				@ must be aligned with bottom 4 bits 0
 fb_struct:
+random_seed:
  	.int 640	@ 0x00: Physical width
 	.int 480	@ 0x04: Physical height
 	.int 640	@ 0x08: Virtual width
