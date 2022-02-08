@@ -21,6 +21,8 @@
 @ 468 bytes -- blue palette
 @ 612 bytes -- add doom fire
 @ 596 bytes -- optimize palette gen
+@ 580 bytes -- more optimize
+@ 532 bytes -- cut all the safety checks out of the mailbox init
 
 @ Register allocations
 @ R0 =	temp			R8=  640*480
@@ -28,9 +30,9 @@
 @ R2 =	temp			R10= framebuffer1
 @ R3 =	temp			R11= framebuffer2
 @ R4 =	temp			R12= fb_struct/random_seed
-@ R5 =	free			R13= Stack
+@ R5 =	temp			R13= Stack
 @ R6 =	frame			R14= Link Register
-@ R7 =				R15= PC
+@ R7 =	temp			R15= PC
 
 
 
@@ -80,13 +82,13 @@ kernel:
 	@==================
 mailbox_write:
 	ldr	r2, =MAILBOX_BASE
-	eor	r4, r4			@ clear timeout
+@	eor	r4, r4			@ clear timeout
 
 	@ Wait until mailbox is ready
 mailbox_write_ready_loop:		@ timeout if mailbox never is ready
-	add	r4, #1
-	tst	r4, #0x80000
-	bne	mailbox_write_done
+@	add	r4, #1
+@	tst	r4, #0x80000
+@	bne	mailbox_write_done
 
 	@ Flush cache
 	mcr	p15, #0, r3, c7, c14, #0	@ flush L1 Dcache
@@ -116,10 +118,10 @@ mailbox_read:
 						@ it didn't timeout last time
 mailbox_read_ready_loop:
 	@ Timeout
-	add	r4, #1
-	tst	r4, #0x80000
+@	add	r4, #1
+@	tst	r4, #0x80000
 @	mvnne	r1, #1				@ indicate failure
-	bne	mailbox_read_done
+@	bne	mailbox_read_done
 
 	@ Flush cache
 	mcr	p15, #0, r1, c7, c14, #0	@ flush L1 dcache
@@ -134,12 +136,12 @@ mailbox_read_ready_loop:
 	ldr	r3, [r2, #OFFSET_MAILBOX_READ]
 
 	@ Check if the channel is right
-	and	r1, r3, #0x0F
-	teq	r0, r1
-	bne	mailbox_read_ready_loop		@ if not, try again
+@	and	r1, r3, #0x0F
+@	teq	r0, r1
+@	bne	mailbox_read_ready_loop		@ if not, try again
 
 	@ Extract data
-	bic       r1, r3, #0xF			@ clear out channel bits
+@	bic       r1, r3, #0xF			@ clear out channel bits
 mailbox_read_done:
 
 	@=======================
@@ -231,18 +233,11 @@ plot_loop:
 	@============================
 	@============================
 doom_fire:
-@	mov	r5,#480
-@	sub	r5,r5,#1
 
-	sub	r5,r8,#640
+	sub	r5,r8,#640		@ setup end to row 479
 
-	@ for(y=firetop;y<479;y++) {
-	mov	r4,#200*640
-fire_yloop:
-
-	@ for(x=0;x<640;x++) {
-@	mov	r2,#0
-fire_xloop:
+	mov	r4,#200*640		@ start at Y=200
+fire_loop:
 
 	@ r=rand()&7;
 	mov	r0,#8		@ will decrement
@@ -251,26 +246,17 @@ fire_xloop:
 
 	@ dst=(y*XSIZE)+x-(r&3)+1;
 	@ dst=(r4)-(r&3)+1
-@	mov	r0,#640
-@	mul	r0,r4,r0	@ (y*xsize)	mla?
-@	add	r0,r0,r2	@ (y*xsize)+x
 	and	r1,r3,#3	@ r&3
 	sub	r7,r4,r1	@ r7=dst
 	add	r7,r7,#1	@ (r&3)+1
 
-
 	@ newcol=buffer[((y+1)*XSIZE)+x]-(r<2);
 	@ newcol=buffer[(r4+640)]-(r<2)
 	add	r0,r4,#640
-@	mov	r0,#640
-@	add	r1,r4,#1
-@	mul	r0,r1,r0	@ (y+1)*XSIZE
-@	add	r0,r0,r2	@ (y+1)*XSIZE+x
 	ldrb	r0,[r11,r0]	@ load value
 	cmp	r3,#2
-	submi	r0,r0,#1
+	submis	r0,r0,#1
 	@ if (newcol<0) newcol=0;
-	cmp	r0,#0
 	movmi	r0,#0
 
 	@ buffer[dst]=newcol;
@@ -279,13 +265,9 @@ fire_xloop:
 	lsl	r0,#2		@ multiply by 4 for better color
 	strb	r0,[r10,r7]
 
-@	add	r2,r2,#1
-@	cmp	r2,#640
-@	bne	fire_xloop
-
 	add	r4,r4,#1
 	cmp	r4,r5
-	bne	fire_yloop
+	bne	fire_loop
 
 	b	copy_framebuffer
 
@@ -373,6 +355,8 @@ copy_loop:
 	str	r3,[r0,r2,asl #2]	@ store to GPU
 	subs	r2,r2,#1		@ work backwards
 	bpl	copy_loop
+
+
 
 
 

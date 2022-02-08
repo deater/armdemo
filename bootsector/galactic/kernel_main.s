@@ -1,9 +1,30 @@
-@ kernel_main
+@ drops
+
+@ by Vince `deater` Weaver, dSr
 
 @ bare-metal assembly code
 @ for ARM1176 based Raspberry Pi Systems
 
+@ ARM32+Thumb (Thumb2 not available until pi2 models)
+
 @ based on vmwOS, also using PiFox as a reference
+
+@ Optimization
+@ 544 bytes -- initial sorta working
+@ 532 bytes -- combine some operations
+@ 520 bytes -- make clear framebuffer THUMB
+
+@ Register allocations
+@ R0 =	temp			R8=
+@ R1 =	temp			R9=  palette?
+@ R2 =	temp			R10= framebuffer1
+@ R3 =	temp			R11= framebuffer2
+@ R4 =	temp			R12= fb_struct?
+@ R5 =	free			R13= Stack
+@ R6 =	free			R14= Link Register
+@ R7 =				R15= PC
+
+
 
 .global _start
 
@@ -41,8 +62,9 @@ kernel:
 	@ deprecated in newer firmwares
 
 	ldr	r0, =0x1		@ firmware channel
-	ldr	r1, =fb_struct		@ point to request struct
-	orr	r1, #0x40000000		@ convert to GPU address
+@	ldr	r1, =fb_struct		@ point to request struct
+@	orr	r1, #0x40000000		@ convert to GPU address
+	ldr	r1, =(fb_struct+0x40000000)
 					@ FIXME: combine these to one load?
 
 	@==================
@@ -81,12 +103,14 @@ mailbox_write_done:
 mailbox_read:
 	ldr	r2, =MAILBOX_BASE
 
-	eor	r4, r4, r4			@ clear timeout value
+@	eor	r4, r4, r4			@ clear timeout value
+						@ let's just assume
+						@ it didn't timeout last time
 mailbox_read_ready_loop:
 	@ Timeout
 	add	r4, #1
 	tst	r4, #0x80000
-	mvnne	r1, #1				@ indicate failure
+@	mvnne	r1, #1				@ indicate failure
 	bne	mailbox_read_done
 
 	@ Flush cache
@@ -110,7 +134,16 @@ mailbox_read_ready_loop:
 	bic       r1, r3, #0xF			@ clear out channel bits
 mailbox_read_done:
 
-	@ TODO: set up cache
+	@=======================
+	@ Setup L1 Dcache
+setup_dcache:
+@	mov	r0, #0
+@	mcr	p15, 0, r0, c7, c7, 0		@ Invalidate caches
+@	mcr	p15, 0, r0, c8, c7, 0		@ Invalidate TLB
+@	mrc	p15, 0, r0, c1, c0, 0
+@	ldr	r1, =0x1004
+@	orr	r0, r0, r1			@ Set L1 enable bit
+@	mcr	p15, 0, r0, c1, c0, 0
 
 	@ TODO: set up sound
 
@@ -127,17 +160,17 @@ pal_setup_loop:
 	cmp	r2,#256*4
 	bne	pal_setup_loop
 
-	@==========================
-	@ clear framebuffer to blue
+	@========================
+	@ setup both framebuffers
 
-	ldr	r0, =offscreen_framebuffer
-	ldr	r2, =640 * 480
-	mov	r1,#20
-clear_loop:
-	strb	r1,[r0,r2]
-	subs	r2, r2, #1
-	bne	clear_loop
+	ldr	r10,=offscreen_framebuffer1
+	ldr	r11,=offscreen_framebuffer2
 
+	mov	r0,r10
+	blx	clear_framebuffer
+
+	mov	r0,r11
+	blx	clear_framebuffer
 
 
 plot_loop:
@@ -167,9 +200,9 @@ try_again_x:
 
 	add	r8,r8,r3	@ +X
 
-	ldr	r0, =offscreen_framebuffer
+@	mov	r0, r10			@ current_framebuffer
 	mov	r1,#0xff
-	strb	r1,[r8,r0]
+	strb	r1,[r10,r8]
 
 
 	@==========================
@@ -179,25 +212,35 @@ try_again_x:
 	@         D
 	@
 	@ calculate color as NEW_V = (A+B+C+D)/2 - OLD_V
+	@		if NEW_V<0 V=-V
 
-	ldr	r0, =offscreen_framebuffer
-	add	r1,r0,#640
+	mov	r1, r10			@ current_framebuffer
+	add	r1,r1,#640
 	ldr	r9,=(640*478)
 	add	r9,r1,r9
+
+	mov	r7, r11			@ output_framebuffer
+	add	r7,r7,#640
+
 drop_loop:
-	ldrb	r2,[r1,#-1]
-	ldrb	r3,[r1,#+1]
-	add	r2,r2,r3
-	ldrb	r3,[r1,#+640]
-	add	r2,r2,r3
-	ldrb	r3,[r1,#-640]
-	add	r2,r3,r3
-	lsr	r2,r2,#1
-	ldrb	r3,[r1]
-	sub	r2,r2,r3
-	strb	r2,[r1]
+	ldrb	r2,[r1,#-1]		@ load A
+	ldrb	r3,[r1,#+1]		@ load B
+	add	r2,r2,r3		@ r2=A+B
+	ldrb	r3,[r1,#+640]		@ load D
+	add	r2,r2,r3		@ r2=A+B+D
+	ldrb	r3,[r1,#-640]		@ load C
+	add	r2,r2,r3		@ r2=A+B+C+D
+	lsr	r2,r2,#1		@ r2=(A+B+C+D)/2
+
+	ldrb	r3,[r1]			@ load OLD_V
+	subs	r2,r2,r3		@ r2=(A+B+C+D)/2 - OLD_V
+@	rsb	r2,r3,r2,lsr #1		@ r2=(A+B+C+D)/2 - OLD_V
+	eormi	r2,r2,#0xff		@ if negative, invert V
+	strb	r2,[r7],#1		@ save, increment r7
+
 
 	add	r1,r1,#1
+	add	r7,r7,#1
 	cmp	r1,r9
 	blt	drop_loop
 
@@ -210,7 +253,7 @@ drop_loop:
 
 	ldr	r4, =palette		@ index negative to this?
 
-	ldr	r1, =offscreen_framebuffer
+	mov	r1, r10
 	eor	r2,r2,r2
 copy_loop:
 	ldrb	r3,[r1,r2]		@ FIXME: auto-update addr mode
@@ -220,6 +263,10 @@ copy_loop:
 	cmp	r2, #(640 * 480)
 	bne	copy_loop
 
+	@ swap r10 and r11
+	mov	r0,r10
+	mov	r10,r11
+	mov	r11,r0
 
 	b	plot_loop
 
@@ -237,6 +284,22 @@ random16:
 
 random_seed:
 	.word	0x7657
+
+.thumb
+	@==========================
+	@ clear framebuffer
+clear_framebuffer:
+	ldr	r2, =640 * 480
+	mov	r1,#0
+clear_loop:
+	strb	r1,[r0,r2]
+@	subs	r2, #1
+	sub	r2, #1		@ in thumb mode, S is assumed?
+	bne	clear_loop
+
+	blx	lr
+.arm
+
 
 @==============================
 @ Framebuffer request structure
@@ -258,4 +321,5 @@ fb_struct:
 
 .section bss
 .lcomm	palette,256*4
-.lcomm	offscreen_framebuffer,640*480*1
+.lcomm	offscreen_framebuffer1,640*480*1
+.lcomm	offscreen_framebuffer2,640*480*1
