@@ -1,17 +1,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-//#define RECORD_FLIGHT 1
-
-#ifdef VMWOS
-#include "syscalls.h"
-#include "vlibc.h"
-#include "vmwos.h"
-#else
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#endif
+
 
 #include "svmwgraph.h"
 #include "pi-graphics.h"
@@ -382,16 +375,10 @@ int flying(unsigned char *buffer, struct palette *pal) {
 			turning--;
 		}
 
-#ifdef RECORD_FLIGHT
-#else
 		lastframe--;
-#endif
 		framecount++;
 		pi_graphics_update(buffer,pal);
-#ifdef VMWOS
-#else
 		usleep(33000);
-#endif
 	}
 	return 0;
 }
@@ -429,22 +416,7 @@ int mode7_flying(unsigned char *buffer, struct palette *pal) {
 	/* load deep field image */
         vmwLoadPCX(deep_field_pcx, 0,0, deep_field, DEEP_XSIZE);
 
-//	{
-//		int q,a;
-//
-//		for(a=0;a<72;a++) {
-//			for(q=0;q<640;q++) {
-//				buffer[a*XSIZE+q]=deep_field[a*DEEP_XSIZE+q];
-//			}
-//		}
-
-//		pi_graphics_update(buffer,pal);
-//		sleep(10);
-//	}
-
 	flying(buffer,pal);
-
-	vmwFadeToBlack(buffer, pal);
 
 	return 0;
 }
