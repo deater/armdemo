@@ -18,6 +18,9 @@
 @ 488 bytes -- more optimization of main loop
 @ 476 bytes -- put 640*480 in a reg and use it
 @ 456 bytes -- reusing the fb_struct 640 as the random number seed
+@ 468 bytes -- blue palette
+@ 612 bytes -- add doom fire
+@ 596 bytes -- optimize palette gen
 
 @ Register allocations
 @ R0 =	temp			R8=  640*480
@@ -26,7 +29,7 @@
 @ R3 =	temp			R11= framebuffer2
 @ R4 =	temp			R12= fb_struct/random_seed
 @ R5 =	free			R13= Stack
-@ R6 =	free			R14= Link Register
+@ R6 =	frame			R14= Link Register
 @ R7 =				R15= PC
 
 
@@ -164,23 +167,32 @@ setup_dcache:
 main_program:
 	@ init memory pointers
 
+	mov	r6,#64				@ frame count
 	mov	r8,#640*480
 	ldr	r9,=palette
 	add	r10,r9,#256*4			@ setup framebuffer 1
 	add	r11,r10,#(640*480)		@ setup framebuffer 2
 
+
 	@=================
 	@ setup palette
+	@=================
+
+	@ setup blues
 setup_palette:
-	eor	r3,r3,r3		@ color
 	eor	r2,r2,r2		@ count
+	mov	r3,#0x80		@ color
 pal_setup_loop:
-	str	r3,[r9,r2]
-	add	r2,r2,#4
-	ldr	r1,=#0x010101
-	add	r3,r3,r1
-	cmp	r2,#256*4
-	bne	pal_setup_loop
+	cmp	r2,#56
+	movlt	r5,#0x08		@ add when <16
+	movge	r5,#0x200		@ add when >16
+	str	r3,[r9,r2]		@ store to palette
+	add	r3,r3,r5		@ inc color
+	add	r2,r2,#4		@ inc pointer
+	cmp	r2,#256*4		@ see if done
+	bne	pal_setup_loop		@ loop
+
+@	ldr	r9,=devel_pal
 
 	@========================
 	@ clear both framebuffers
@@ -196,10 +208,87 @@ pal_setup_loop:
 	@ main loop
 	@======================
 
+	@ for fire, draw horizontal line at bottom, color 31
+	@ draw line
+
+	mov	r2,#0x1f			@ load color
+	add	r1,r8,#-640			@ r1 is offset
+hline_loop:
+	strb	r2,[r11,r1]			@ store the byte
+	add	r1,r1,#1			@ increment
+	cmp	r1,r8				@ see if reached end (640*480)
+	bne	hline_loop			@ loop if not
+
 plot_loop:
+
+	@ check frame count
+	subs	r6,r6,#1
+	bmi	doom_rain
+
+	@ doom fire
+doom_fire:
+	mov	r5,#480
+	sub	r5,r5,#1
+
+	@ for(y=firetop;y<479;y++) {
+	mov	r4,#200
+fire_yloop:
+
+	@ for(x=0;x<640;x++) {
+	mov	r2,#0
+fire_xloop:
+
+	@ r=rand()&7;
+	mov	r0,#8		@ will decrement
+	mov	r1,#8
+	bl	random16	@ r result in r3
+
+	@ dst=(y*XSIZE)+x-(r&3)+1;
+	mov	r0,#640
+	mul	r0,r4,r0	@ (y*xsize)	mla?
+	add	r0,r0,r2	@ (y*xsize)+x
+	and	r1,r3,#3	@ r&3
+	sub	r7,r0,r1	@ r7=dst
+	add	r7,r7,#1	@ (r&3)+1
+
+
+	@ newcol=buffer[((y+1)*XSIZE)+x]-(r<2);
+	mov	r0,#640
+	add	r1,r4,#1
+	mul	r0,r1,r0	@ (y+1)*XSIZE
+	add	r0,r0,r2	@ (y+1)*XSIZE+x
+	ldrb	r0,[r11,r0]	@ load value
+	cmp	r3,#2
+	submi	r0,r0,#1
+	@ if (newcol<0) newcol=0;
+	cmp	r0,#0
+	movmi	r0,#0
+
+	@ buffer[dst]=newcol;
+	strb	r0,[r11,r7]
+
+	lsl	r0,#2		@ multiply by 4 for better color
+	strb	r0,[r10,r7]
+
+	add	r2,r2,#1
+	cmp	r2,#640
+	bne	fire_xloop
+
+	add	r4,r4,#1
+	cmp	r4,r5
+	bne	fire_yloop
+
+	b	copy_framebuffer
+
 
 	@========================
 	@ put drop
+doom_rain:
+
+	@ swap r10 and r11
+	mov	r0,r10
+	mov	r10,r11
+	mov	r11,r0
 
 	@ get random Y (<480)
 
@@ -256,12 +345,16 @@ drop_loop:
 	blt	drop_loop
 
 	@==========================
+	@==========================
 	@ copy our framebuffer to
 	@ the firmware one, use palette
-
+	@==========================
+	@==========================
+copy_framebuffer:
 	ldr	r0, [r12, #0x20]	@ get address of GPU framebuffer
 
 	mov	r2,r8			@ backwards from end
+					@ (r8=640*480)
 					@ NOTE: we read/write one word past
 					@ end of framebuffer to save 4 bytes
 					@ is that OK?
@@ -272,10 +365,7 @@ copy_loop:
 	subs	r2,r2,#1		@ work backwards
 	bpl	copy_loop
 
-	@ swap r10 and r11
-	mov	r0,r10
-	mov	r10,r11
-	mov	r11,r0
+
 
 	b	plot_loop
 
