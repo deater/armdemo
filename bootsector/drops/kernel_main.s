@@ -149,28 +149,28 @@ setup_dcache:
 	@ TODO: set up sound
 
 
+
+	@=========================================
 	@=========================================
 	@=========================================
 	@ main program
 	@=========================================
 	@=========================================
-
+	@=========================================
 main_program:
 	@ init memory pointers
 
 	ldr	r9,=palette
 	add	r10,r9,#256*4			@ setup framebuffer 1
-@	ldr	r10,=offscreen_framebuffer1	@ setup framebuffer 1
-@	ldr	r11,=offscreen_framebuffer2	@ setup framebuffer 2
 	add	r11,r10,#(640*480)		@ setup framebuffer 2
 
+	@=================
 	@ setup palette
-
-	ldr	r4, =palette		@ index negative to this?
+setup_palette:
 	eor	r3,r3,r3		@ color
 	eor	r2,r2,r2		@ count
 pal_setup_loop:
-	str	r3,[r4,r2]
+	str	r3,[r9,r2]
 	add	r2,r2,#4
 	ldr	r1,=#0x010101
 	add	r3,r3,r1
@@ -187,30 +187,37 @@ pal_setup_loop:
 	blx	clear_framebuffer
 
 
+	@======================
+	@ main loop
+	@======================
+
 plot_loop:
 
-
+	@========================
 	@ put drop
-putpixel:
 
-	@ get random Y
+	@ get random Y (<480)
 try_again_y:
+	mov	r0,#512		@ will decrement
+	mov	r1,#480
 	bl	random16	@ Y result in r3
-	ldr	r5,=511
-	and	r3,r3,r5
-	cmp	r3,#480
-	bge	try_again_y
+
+@	and	r3,r3,r5
+@	cmp	r3,#480
+@	bge	try_again_y
 
 	mov	r7,#640		@ Y*640
 	mul	r8,r3,r7
 
-	@ get random X
+	@ get random X (<640)
 try_again_x:
+	mov	r0,#1024
+	mov	r1,#640
 	bl	random16	@ get random number <640
-	ldr	r5,=1023
-	and	r3,r3,r5
-	cmp	r3,#640
-	bge	try_again_x
+@	ldr	r5,=1023
+@	and	r3,r3,r5
+@	cmp	r3,#640
+@	bge	try_again_x
 
 	add	r8,r8,r3	@ +X
 
@@ -284,14 +291,26 @@ copy_loop:
 
 	b	plot_loop
 
-
+	@============================
+	@ random16 (with limits)
+	@============================
+	@ using linear feedback shift register of sorts?
+	@	r0=mask+1
+	@	r1=max
+	@
+	@ r3=result, r4 trashed
 random16:
+	sub	r0,r0,#1
 	ldr	r4,=random_seed
 	ldr	r3,[r4]
 	eor	r3,r3,r3,lsl #7
 	eor	r3,r3,r3,lsr #9
 	eor	r3,r3,r3,lsl #8
 	str	r3,[r4]
+
+	and	r3,r3,r0
+	cmp	r3,r1
+	bge	random16
 
 	blx	lr
 
