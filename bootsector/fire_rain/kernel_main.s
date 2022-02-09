@@ -170,7 +170,7 @@ setup_dcache:
 main_program:
 	@ init memory pointers
 
-	mov	r6,#128				@ frame count
+	mov	r6,#192				@ frame count
 	mov	r8,#640*480
 	ldr	r9,=palette
 	add	r10,r9,#256*4			@ setup framebuffer 1
