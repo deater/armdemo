@@ -1,0 +1,14 @@
+Ocean Rain
+-
+512B boot sector for Raspberry Pi
+Lovebyte 2022
+Bare-metal, no operating system needed
+by Deater / dSr
+
+Runs on 1st-gen Pis with 1176 chips
+(Model 1B, 1A, etc)
+
+To run, get a Raspbian Pi OS disk
+image on SD card.  Copy the included
+"kernel.img" over the kernel.img
+in /boot

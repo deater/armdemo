@@ -23,6 +23,8 @@
 @ 596 bytes -- optimize palette gen
 @ 580 bytes -- more optimize
 @ 532 bytes -- cut all the safety checks out of the mailbox init
+@ 512 bytes -- re-optimize doom fire, move around fb location to avoid nops
+@ 508 bytes -- realize I can use "adr" insteaf of "ldr ="
 
 @ Register allocations
 @ R0 =	temp			R8=  640*480
@@ -72,7 +74,7 @@ kernel:
 	@ deprecated in newer firmwares
 
 @	ldr	r0, =0x1		@ firmware channel
-	ldr	r12, =fb_struct		@ point to request struct
+	adr	r12, fb_struct		@ point to request struct
 	orr	r1, r12,#0x40000001		@ convert to GPU address
 @	ldr	r1, =(fb_struct+0x40000000)
 					@ FIXME: combine these to one load?
