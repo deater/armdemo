@@ -5,7 +5,7 @@
 @ bare-metal assembly code
 @ for ARM1176 based Raspberry Pi Systems
 
-@ ARM32+Thumb (Thumb2 not available until pi2 models)
+@ ARM32+Thumb (didn't use Thumb2 as not available until pi2 models)
 
 @ based on vmwOS, also using PiFox as a reference
 
@@ -240,6 +240,9 @@ plot_loop:
 	@ doom fire
 	@============================
 	@============================
+	@ based on PSX doom fire as described by Fabien Sanglard
+	@ https://fabiensanglard.net/doom_fire_psx/
+
 doom_fire:
 
 	sub	r5,r8,#640		@ setup end to row 479
@@ -284,6 +287,10 @@ fire_loop:
 
 	@========================
 	@ put drop
+
+	@ rain drop algorithm based on that described by
+	@ https://github.com/seban-slt/Atari8BitBot/blob/master/ASM/water/water.m65
+
 doom_rain:
 
 	@ swap r10 and r11
@@ -375,7 +382,10 @@ copy_loop:
 	@============================
 	@ random16 (with limits)
 	@============================
-	@ using linear feedback shift register of sorts?
+	@ based on Xorshift: a simple, fast pseudorandom number generator
+	@  developed by George Marsaglia
+	@ http://www.retroprogramming.com/2017/07/xorshift-pseudorandom-numbers-in-z80.html
+	@
 	@	r0=mask+1
 	@	r1=max
 	@
