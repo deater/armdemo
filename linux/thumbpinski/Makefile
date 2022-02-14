@@ -15,6 +15,8 @@ all:	sierpinski_raw sierpinski_asm sierpinski \
 
 ###
 
+pouet:	thumbpinski_pouet.zip
+
 submit:	thumbpinski.zip
 
 thumbpinski.zip:	sierpinski_elfabuse.s file_id.diz
@@ -25,6 +27,17 @@ thumbpinski.zip:	sierpinski_elfabuse.s file_id.diz
 	cp thumbpinski_720p.mp4 ./lovebyte2022_thumbpinski_128
 	cp thumbpinski.jpg ./lovebyte2022_thumbpinski_128
 	zip -r thumbpinski.zip lovebyte2022_thumbpinski_128
+
+###
+
+thumbpinski_pouet.zip:	sierpinski_elfabuse.s file_id.diz
+	mkdir -p lovebyte2022_thumbpinski_128
+	cp sierpinski_ea ./lovebyte2022_thumbpinski_128
+	cp sierpinski_elfabuse.s ./lovebyte2022_thumbpinski_128
+	cp file_id.diz ./lovebyte2022_thumbpinski_128
+	cp thumbpinski.jpg ./lovebyte2022_thumbpinski_128
+	zip -r thumbpinski_pouet.zip lovebyte2022_thumbpinski_128
+
 
 ###
 

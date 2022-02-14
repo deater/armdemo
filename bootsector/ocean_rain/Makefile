@@ -17,13 +17,14 @@ all:	kernel.img kernel.dis
 
 submit:	ocean_rain.zip
 
-ocean_rain.zip:    kernel.img kernel_main.s file_id.diz
+pouet:	ocean_rain_pouet.zip
+
+ocean_rain_pouet.zip:    kernel.img kernel_main.s file_id.diz
 	mkdir -p lovebyte2022_ocean_rain
 	cp kernel.img ./lovebyte2022_ocean_rain
 	cp kernel_main.s ./lovebyte2022_ocean_rain
 	cp file_id.diz ./lovebyte2022_ocean_rain
-	cp ocean_rain_720p.mp4 ./lovebyte2022_ocean_rain
-	zip -r ocean_rain.zip lovebyte2022_ocean_rain
+	zip -r ocean_rain_pouet.zip lovebyte2022_ocean_rain
 
 
 

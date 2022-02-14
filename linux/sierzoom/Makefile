@@ -25,6 +25,19 @@ sierzoom.zip:	sierzoom_asm.s file_id.diz
 
 ###
 
+pouet:	sierzoom_pouet.zip
+
+sierzoom_pouet.zip:	sierzoom_asm.s file_id.diz
+	mkdir -p lovebyte2022_sierzoom_256
+	cp sierzoom_asm ./lovebyte2022_sierzoom_256
+	cp sierzoom_asm.s ./lovebyte2022_sierzoom_256
+	cp file_id.diz ./lovebyte2022_sierzoom_256
+	cp sierzoom_arm.jpg ./lovebyte2022_sierzoom_256
+	zip -r sierzoom_pouet.zip lovebyte2022_sierzoom_256
+
+###
+
+
 sierzoom:	sierzoom.o
 	$(CC) $(LFLAGS) -o sierzoom sierzoom.o
 
