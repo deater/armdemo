@@ -402,7 +402,7 @@ random16:
 	cmp	r3,r1
 	bge	random16
 
-	blx	lr
+	bx	lr			@ return
 
 @random_seed:				@ FIXME: can be arbitary value
 @	.word	0x7657			@ so can just grab some init code?
