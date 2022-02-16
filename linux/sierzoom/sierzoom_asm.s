@@ -128,7 +128,7 @@ strcat_loop:
 	adds	r2,r2,#1
 	subs	r0,r0,#1
 	bne	strcat_loop
-	blx	lr
+	bx	lr			@ return
 
 data_begin:
 
