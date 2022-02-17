@@ -71,7 +71,7 @@ kernel:
 
 
 
-	mov	r6,#192				@ frame count
+	mov	r6,#191				@ frame count
 	mov	r8,#640*480
 	ldr	r9,=palette
 	add	r10,r9,#256*4			@ setup framebuffer 1
@@ -89,6 +89,8 @@ kernel:
 
 	mov	r0,r10
 	blx	clear_framebuffer
+
+	@ set up values in fb_struct for 640x480, 32bpp
 
 	mov	r2,#640
 	str	r2,[r12,#0]
@@ -219,30 +221,13 @@ setup_dcache:
 	@=========================================
 main_program:
 
-
-
-	@========================
-	@ clear both framebuffers
-
-	@ clear framebuffer1
-
-@	mov	r0,r10
-@	blx	clear_framebuffer
-
-	@ clear framebuffer2
-
-@	mov	r0,r11
-@	blx	clear_framebuffer
-
-
 	@=================
 	@ setup palette
 	@=================
 
 	@ setup blues
 setup_palette:
-	@ r2 is 0 from the clear_framebuffer
-	eor	r2,r2,r2		@ count
+	eor	r2,r2,r2		@ count = 0
 	mov	r3,#0x80		@ color
 pal_setup_loop:
 	cmp	r2,#56
@@ -257,10 +242,8 @@ pal_setup_loop:
 @	ldr	r9,=devel_pal
 
 
-
-
 	@======================
-	@ main loop
+	@ setup fire
 	@======================
 
 	@ for fire, draw horizontal line at bottom, color 31
@@ -273,6 +256,11 @@ hline_loop:
 	add	r1,r1,#1			@ increment
 	cmp	r1,r8				@ see if reached end (640*480)
 	bne	hline_loop			@ loop if not
+
+
+	@======================
+	@ main loop
+	@======================
 
 plot_loop:
 
@@ -420,9 +408,10 @@ copy_loop:
 
 
 
-
-
 	b	plot_loop
+
+
+
 
 	@============================
 	@ random16 (with limits)
@@ -473,7 +462,7 @@ clear_loop:
 .lcomm	offscreen_framebuffer1,640*480*1
 .lcomm	offscreen_framebuffer2,640*480*1
 .align 4				@ must be aligned with bottom 4 bits 0
-.lcomm fb_struct,20
+.lcomm fb_struct,40
 @random_seed:
 @	.word	0x7657
 @==============================
