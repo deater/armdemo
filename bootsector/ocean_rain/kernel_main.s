@@ -449,10 +449,33 @@ random16:
 
 	bx	lr			@ return
 
-@random_seed:				@ FIXME: can be arbitary value
-@	.word	0x7657			@ so can just grab some init code?
+
+.thumb
+	@==========================
+	@ clear framebuffer
+clear_framebuffer:
+	mov	r2,r8			@ 640*480
+	lsl	r2,#3			@ multiply by 4 to get all
+	mov	r1,#0			@ clear to zero
+clear_loop:
+	strb	r1,[r0,r2]
+	sub	r2, #1		@ in thumb mode, S is assumed?
+	bne	clear_loop
+
+	bx	lr
+.arm
 
 
+
+
+.section bss
+.lcomm	palette,256*4
+.lcomm	offscreen_framebuffer1,640*480*1
+.lcomm	offscreen_framebuffer2,640*480*1
+.align 4				@ must be aligned with bottom 4 bits 0
+.lcomm fb_struct,20
+@random_seed:
+@	.word	0x7657
 @==============================
 @ Framebuffer request structure
 @==============================
@@ -471,29 +494,3 @@ random16:
 @	.int 0		@ 0x20: Address			@ 32
 @	.int 0		@ 0x24: Size			@ 36
 @.align 2
-
-.thumb
-	@==========================
-	@ clear framebuffer
-clear_framebuffer:
-	mov	r2,r8			@ 640*480
-	lsl	r2,#3			@ multiply by 4 to get all
-	mov	r1,#0			@ clear to zero
-clear_loop:
-	strb	r1,[r0,r2]
-	sub	r2, #1		@ in thumb mode, S is assumed?
-	bne	clear_loop
-
-	blx	lr
-.arm
-
-
-
-
-.section bss
-.lcomm	palette,256*4
-.lcomm	offscreen_framebuffer1,640*480*1
-.lcomm	offscreen_framebuffer2,640*480*1
-.align 4				@ must be aligned with bottom 4 bits 0
-fb_struct:
-
