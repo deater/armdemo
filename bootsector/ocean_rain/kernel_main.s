@@ -25,6 +25,9 @@
 @ 532 bytes -- cut all the safety checks out of the mailbox init
 @ 512 bytes -- re-optimize doom fire, move around fb location to avoid nops
 @ 508 bytes -- realize I can use "adr" insteaf of "ldr ="
+@ 528 bytes -- enable cache to make it twice as fast
+@ 520 bytes -- re-arrange where fb_struct lives
+@ 512 bytes -- init framebuffers to 0 in one go, rather than 3 separate
 
 @ Register allocations
 @ R0 =	temp			R8=  640*480
@@ -35,8 +38,6 @@
 @ R5 =	temp			R13= Stack
 @ R6 =	frame			R14= Link Register
 @ R7 =	temp			R15= PC
-
-
 
 .global _start
 
@@ -63,9 +64,42 @@ kernel:
 
 	@ TODO: set up interrupt vector table?
 
+
+	@====================
+	@ init memory pointers
+	@====================
+
+
+
+	mov	r6,#192				@ frame count
+	mov	r8,#640*480
+	ldr	r9,=palette
+	add	r10,r9,#256*4			@ setup framebuffer 1
+	add	r11,r10,#(640*480)		@ setup framebuffer 2
+	add	r12,r11,#(640*480)		@ setup fb_struct
+
+
+
 	@====================
 	@ set up graphics
 	@====================
+
+
+	@ clear all framebuffers and fb_struct
+
+	mov	r0,r10
+	blx	clear_framebuffer
+
+	mov	r2,#640
+	str	r2,[r12,#0]
+	str	r2,[r12,#8]
+
+	mov	r2,#480
+	str	r2,[r12,#4]
+	str	r2,[r12,#12]
+
+	mov	r2,#32
+	str	r2,[r12,#20]
 
 	@ request a framebuffer config from the firmware
 	@ using the mailbox interface
@@ -74,10 +108,14 @@ kernel:
 	@ deprecated in newer firmwares
 
 @	ldr	r0, =0x1		@ firmware channel
-	adr	r12, fb_struct		@ point to request struct
+@	adr	r12, fb_struct		@ point to request struct
+@	ldr	r12, =fb_struct		@ point to request struct
 	orr	r1, r12,#0x40000001		@ convert to GPU address
 @	ldr	r1, =(fb_struct+0x40000000)
 					@ FIXME: combine these to one load?
+
+
+
 
 	@==================
 	@ mailbox write
@@ -135,8 +173,8 @@ mailbox_read_ready_loop:
 	bne	mailbox_read_ready_loop
 
 	@ Read in data
-	mcr	p15, #0, r1, c7, c10, #5	@ DMB (data memory barrier)
-	ldr	r3, [r2, #OFFSET_MAILBOX_READ]
+@	mcr	p15, #0, r1, c7, c10, #5	@ DMB (data memory barrier)
+@	ldr	r3, [r2, #OFFSET_MAILBOX_READ]
 
 	@ Check if the channel is right
 @	and	r1, r3, #0x0F
@@ -148,15 +186,25 @@ mailbox_read_ready_loop:
 mailbox_read_done:
 
 	@=======================
-	@ Setup L1 Dcache
+	@ Setup L1 caches
+
+	@ note, runs about twice as fast with cache
+	@ start to first color pulse
+	@	16s with l1+brpred
+	@	17s with l1
+	@	30s with no cache
+
 setup_dcache:
-@	mov	r0, #0
+@	mov	r0, #0				@
 @	mcr	p15, 0, r0, c7, c7, 0		@ Invalidate caches
 @	mcr	p15, 0, r0, c8, c7, 0		@ Invalidate TLB
-@	mrc	p15, 0, r0, c1, c0, 0
-@	ldr	r1, =0x1004
-@	orr	r0, r0, r1			@ Set L1 enable bit
-@	mcr	p15, 0, r0, c1, c0, 0
+
+	mrc	p15, 0, r0, c1, c0, 0		@ load control reg to r0
+	ldr	r1, =0x1804			@ bit 0x0004 is L1 dcache enable
+						@ bit 0x1000 is L1 icache
+						@ bit 0x0800 is brpred
+	orr	r0, r0, r1			@ Set L1 enable bit
+	mcr	p15, 0, r0, c1, c0, 0		@ write back control reg
 
 	@ TODO: set up sound
 
@@ -170,24 +218,21 @@ setup_dcache:
 	@=========================================
 	@=========================================
 main_program:
-	@ init memory pointers
-
-	mov	r6,#192				@ frame count
-	mov	r8,#640*480
-	ldr	r9,=palette
-	add	r10,r9,#256*4			@ setup framebuffer 1
-	add	r11,r10,#(640*480)		@ setup framebuffer 2
 
 
 
 	@========================
 	@ clear both framebuffers
 
-	mov	r0,r10
-	blx	clear_framebuffer
+	@ clear framebuffer1
 
-	mov	r0,r11
-	blx	clear_framebuffer
+@	mov	r0,r10
+@	blx	clear_framebuffer
+
+	@ clear framebuffer2
+
+@	mov	r0,r11
+@	blx	clear_framebuffer
 
 
 	@=================
@@ -197,7 +242,7 @@ main_program:
 	@ setup blues
 setup_palette:
 	@ r2 is 0 from the clear_framebuffer
-@	eor	r2,r2,r2		@ count
+	eor	r2,r2,r2		@ count
 	mov	r3,#0x80		@ color
 pal_setup_loop:
 	cmp	r2,#56
@@ -412,26 +457,27 @@ random16:
 @ Framebuffer request structure
 @==============================
 
-.align 4				@ must be aligned with bottom 4 bits 0
-fb_struct:
-random_seed:
- 	.int 640	@ 0x00: Physical width
-	.int 480	@ 0x04: Physical height
-	.int 640	@ 0x08: Virtual width
-	.int 480	@ 0x0C: Virtual height
-	.int 0		@ 0x10: Pitch
-	.int 32		@ 0x14: Bit depth
-	.int 0		@ 0x18: X
-	.int 0		@ 0x1C: Y
-	.int 0		@ 0x20: Address
-	.int 0		@ 0x24: Size
-.align 2
+@.align 4				@ must be aligned with bottom 4 bits 0
+@fb_struct:
+@random_seed:
+@	.int 640	@ 0x00: Physical width		@ 0
+@	.int 480	@ 0x04: Physical height		@ 4
+@	.int 640	@ 0x08: Virtual width		@ 8
+@	.int 480	@ 0x0C: Virtual height		@ 12
+@	.int 0		@ 0x10: Pitch			@ 16
+@	.int 32		@ 0x14: Bit depth		@ 20
+@	.int 0		@ 0x18: X			@ 24
+@	.int 0		@ 0x1C: Y			@ 28
+@	.int 0		@ 0x20: Address			@ 32
+@	.int 0		@ 0x24: Size			@ 36
+@.align 2
 
 .thumb
 	@==========================
 	@ clear framebuffer
 clear_framebuffer:
 	mov	r2,r8			@ 640*480
+	lsl	r2,#3			@ multiply by 4 to get all
 	mov	r1,#0			@ clear to zero
 clear_loop:
 	strb	r1,[r0,r2]
@@ -448,3 +494,6 @@ clear_loop:
 .lcomm	palette,256*4
 .lcomm	offscreen_framebuffer1,640*480*1
 .lcomm	offscreen_framebuffer2,640*480*1
+.align 4				@ must be aligned with bottom 4 bits 0
+fb_struct:
+
