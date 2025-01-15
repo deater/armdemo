@@ -6,7 +6,8 @@
 
 char output[65536];
 
-int32_t double_to_fixed(double in) {
+#if 0
+static int32_t double_to_fixed(double in) {
 
 	int32_t x=0;
 
@@ -14,8 +15,9 @@ int32_t double_to_fixed(double in) {
 
 	return x;
 }
+#endif
 
-int32_t fixed_mul(int32_t x, int32_t y) {
+static int32_t fixed_mul(int32_t x, int32_t y) {
 
 	int64_t result,x1,y1;
 
@@ -27,21 +29,20 @@ int32_t fixed_mul(int32_t x, int32_t y) {
 	return result;
 }
 
-int32_t our_sin(int32_t x) {
+static int32_t our_sin(int32_t x) {
 
 	int32_t result;
-	int32_t x3,x5;
+	int32_t x2,x3,x5;
 	int32_t x3t,x5t;
 
 	// sin(x) ~= x - (x^3)/3!  + (x^5)/5! - (x^7)/7!
 
-	x3=fixed_mul(x,x);
-	x3=fixed_mul(x3,x);
-	x3t=fixed_mul(x3,double_to_fixed(1.0/6.0));
+	x2=fixed_mul(x,x);
+	x3=fixed_mul(x2,x);
+	x3t=fixed_mul(x3,0x2AAB);	// double_to_fixed(1.0/6.0));
 
-	x5=fixed_mul(x3,x);
-	x5=fixed_mul(x5,x);
-	x5t=fixed_mul(x5,double_to_fixed(1.0/120.0));
+	x5=fixed_mul(x3,x2);
+	x5t=fixed_mul(x5,0x222);	// double_to_fixed(1.0/120.0));
 
 	result=x-x3t+x5t;
 
@@ -59,35 +60,16 @@ int32_t our_sin(int32_t x) {
 //        0  pi/2  pi
 // sin    0   1    0
 // cos    1   0
-int32_t our_cos(int32_t x) {
+static int32_t our_cos(int32_t x) {
 
 	int32_t offset;
 
-	offset=double_to_fixed(1.57);
+	offset=0x19220;	/* pi/2 */
+
+//	offset=double_to_fixed(1.57);
 
 	return our_sin(offset-x);
 }
-
-
-#if 0
-
-int setup_table(void) {
-
-	int x,y;
-
-	for(x=0;x<80;x++) {
-		cos_table[x]=cos(x/128.0);
-		printf("%d: %.2f\n",x,cos_table[x]);
-	}
-	for(y=0;y<24;y++) {
-		sin_table[y]=sin(y/128.0);
-	}
-
-	exit(1);
-	return 0;
-}
-
-#endif
 
 int main(int argc, char **argv) {
 
@@ -98,18 +80,22 @@ int main(int argc, char **argv) {
 
 	char string[1024];
 
+//	printf("%X\n",double_to_fixed(1.0/120.0));
+
+//	exit(1);
+
 	while(1) {
 		strcpy(output,"\x1b[1;1H");
 
 		for(y=0;y<24;y++) {
 			for(x=0;x<80;x++) {
-				xx=(x<<16)>>7;
-				yy=(y<<16)>>7;
+				xx=x<<9;	// xx=(x<<16)>>7;
+				yy=y<<9;	// yy=(y<<16)>>7;
 				c=our_cos(xx)+ // cos
 					our_sin(yy)+t;
 				//o=(c*64.0);	// <<5 then >> 16
 
-				o=((c<<5)>>16);
+				o=c>>11;	// o=((c<<5)>>16);
 
 				sprintf(string,
 					"\x1b[38;2;%d;%d;%dm%c",
@@ -127,7 +113,8 @@ int main(int argc, char **argv) {
 		write(STDOUT_FILENO,output,length);
 
 		usleep(30000);
-		t=t+double_to_fixed(1.0/200.0);
+		//t=t+double_to_fixed(1.0/200.0);
+		t=t+0x148; // (1/200)
 
 	}
 	return 0;
