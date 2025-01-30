@@ -91,17 +91,19 @@ int main(int argc, char **argv) {
 			for(x=0;x<80;x++) {
 				xx=x<<9;	// xx=(x<<16)>>7;
 				yy=y<<9;	// yy=(y<<16)>>7;
-				c=our_cos(xx)+ // cos
-					our_sin(yy)+t;
+				c=our_cos(xx+t)+ // cos
+					our_sin(yy)+t*2;
 				//o=(c*64.0);	// <<5 then >> 16
 
 				o=c>>11;	// o=((c<<5)>>16);
 
+				int cc=c>>8;
+
 				sprintf(string,
 					"\x1b[38;2;%d;%d;%dm%c",
-					(o&0x3f)*4,
-					((o+32)&0x3f)*4,
-					((o+48)&0x3f)*4,
+					(cc&0x3f)*4,
+					((cc+32)&0x3f)*4,
+					((cc+48)&0x3f)*4,
 					(o&0x3f)+' ');
 
 				strcat(output,string);
