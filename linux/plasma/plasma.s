@@ -151,9 +151,19 @@ strcat_done:
 	bx	lr			@ return
 
 
-
+	@=================================
+	@ 16.16 fixed point multiply
+	@=================================
+	@ input r0, r1
+	@ output r0
+	@ r1 trashed
 fixed_mul:
-@	result=((x1*y1)>>16);		@
+	@	result=((x1*y1)>>16);		@
+
+	smull	r0, r1, r0, r1		@ r0*r1 -> {r1,r0}
+	lsr	r0, r0, #16
+	orr	r0, r0, r1, lsl #16
+	bx	lr
 
 
 	@==============================
@@ -161,33 +171,52 @@ fixed_mul:
 	@==============================
 	@ input in r0, output in r0
 our_cos:
+	ldr	r1,=0x19220		@	offset=0x19220;	/* pi/2 */
+	sub	r0,r1,r0		@	return our_sin(offset-x);
 
-					@	offset=0x19220;	/* pi/2 */
-
-					@	return our_sin(offset-x);
-	bx	lr
+	@ fallthrough
 
 
 	@==============================
 	@ our_sin
 	@==============================
 	@ input in r0, output in r0
+	@
+	@ sin(x) ~= x - (x^3)/3!  + (x^5)/5! - (x^7)/7!
+
 our_sin:
-@	int32_t result;
-@	int32_t x2,x3,x5;
-@	int32_t x3t,x5t;
+	push	{lr}
+	mov	r7,r0			@ save r0 for later
 
-@	// sin(x) ~= x - (x^3)/3!  + (x^5)/5! - (x^7)/7!
+	mov	r0,r0
+	mov	r1,r0
+	bl	fixed_mul
+	mov	r2,r0			@ x2=fixed_mul(x,x);
 
-@	x2=fixed_mul(x,x);
-@	x3=fixed_mul(x2,x);
-@	x3t=fixed_mul(x3,0x2AAB);	// double_to_fixed(1.0/6.0));
+	mov	r0,r2
+	mov	r1,r7
+	bl	fixed_mul
+	mov	r3,r0			@ x3=fixed_mul(x2,x);
 
-@	x5=fixed_mul(x3,x2);
-@	x5t=fixed_mul(x5,0x222);	// double_to_fixed(1.0/120.0));
+	mov	r0,r3
+	mov	r1,r2
+	bl	fixed_mul
+	mov	r5,r0			@ x5=fixed_mul(x3,x2);
 
-@	result=x-x3t+x5t;
+	mov	r0,r3
+	ldr	r1,=0x2aab		@ double_to_fixed(1.0/6.0));
+	bl	fixed_mul
+	mov	r3,r0			@ x3t=fixed_mul(x3,0x2AAB);
 
+	mov	r0,r5
+	ldr	r1,=0x222		@ double_to_fixed(1.0/120.0));
+	bl	fixed_mul
+	mov	r5,r0			@ x5t=fixed_mul(x5,0x222);
+
+	add	r3,r3,r5
+	sub	r0,r7,r3		@ result=x-x3t+x5t;
+
+	pop	{lr}
 	bx	lr			@ return result;
 
 

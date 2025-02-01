@@ -80,8 +80,7 @@ int main(int argc, char **argv) {
 
 	char string[1024];
 
-//	printf("%X\n",double_to_fixed(1.0/120.0));
-
+//	printf("%X\n",double_to_fixed(3.14159265358979/2.0));
 //	exit(1);
 
 	while(1) {
