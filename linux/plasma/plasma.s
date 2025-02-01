@@ -60,13 +60,34 @@ xloop:
 	mov	r4,r12,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 	mov	r5,r12,LSR #8		@ cc=c>>8;
 
-@				sprintf(string,
-@					"\x1b[38;2;%d;%d;%dm%c",
-@					(cc&0x3f)*4,
-@					((cc+32)&0x3f)*4,
-@					((cc+48)&0x3f)*4,
-@					(o&0x3f)+' ');
-	and	r1,r4,#0x3f	@	mov	r1,#'A'
+
+	ldr	r0,=color_string	@ "\x1b[38;2;"
+	bl	strcat
+
+	and	r1,r5,#0x3f
+	mov	r1,r1,LSL #2
+	bl	strcat_num		@ (cc&0x3f)*4,
+
+	mov	r1,#';'			@ ;
+	bl	strcat_char
+
+	add	r5,r5,#32
+	and	r1,r5,#0x3f
+	mov	r1,r1,LSL #2
+	bl	strcat_num		@ ((cc+32)&0x3f)*4,
+
+	mov	r1,#';'			@ ;
+	bl	strcat_char
+
+	add	r5,r5,#16
+	and	r1,r5,#0x3f
+	mov	r1,r1,LSL #2
+	bl	strcat_num		@ ((cc+48)&0x3f)*4,
+
+	mov	r1,#'m'			@ m
+	bl	strcat_char
+
+	and	r1,r4,#0x3f		@ (o&0x3f)+' ');
 	add	r1,r1,#' '
 	bl	strcat_char
 
@@ -221,20 +242,73 @@ our_sin:
 
 
 
+	@#############################
+	@ strcat_num
+	@#############################
+	@ r1 = value to print
+
+strcat_num:
+	push	{r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,LR}	@ store return address on stack
+	ldr	r10,=(ascii_num+2)
+                                        @ point to end of our buffer
+
+div_by_10:
+	@================================================================
+	@ Divide by 10 - because ARMv6 has no hardware divide instruction
+	@    the algorithm multiplies by 1/10 * 2^32
+	@    then divides by 2^32 (by ignoring the low 32-bits of result)
+        @================================================================
+	@ r1=numerator
+	@ r7=quotient    r8=remainder
+	@ r5=trashed
+divide_by_10:
+	ldr	r4,=429496730			@ 1/10 * 2^32
+	sub	r5,r1,r1,lsr #30
+	umull	r8,r7,r4,r5			@ {r8,r7}=r4*r5
+
+	mov	r4,#10				@ calculate remainder
+
+						@ could use "mls" on
+						@ armv6/armv7
+	mul	r8,r7,r4
+	sub	r8,r1,r8
+
+	@ r7=Q, R8=R
+
+	add	r8,r8,#0x30	@ convert to ascii
+	strb	r8,[r10],#-1	@ store a byte, decrement pointer
+	adds	r1,r7,#0	@ move Q in for next divide, update flags
+	bne	div_by_10	@ if Q not zero, loop
+
+write_out:
+	add	r0,r10,#1	@ adjust pointer
+	pop	{r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,LR}	@ restore return address from stack
+
+	b	strcat
+
+@	bx	lr
+
+
 
 .data
+
+ascii_num:
+	.byte	0,0,0,0
 
 output_char:
 	.byte	0,0
 
 color_string:
-	.ascii	"\033[40m "		@ 0
+	.ascii	"\033[38;2;"		@ 0
+	.byte	0
+@ FIXME: use output_char instead
 linefeed:
 	.ascii	"\n"			@
 	.byte 0
 move_to_start:
 	.ascii "\033[1;1H"		@
 	.byte 0
+@ FIXME: overlap if possible
 timespec_30k:
 	.word	0			@ seconds
 	.word	30000000		@ nanoseconds
