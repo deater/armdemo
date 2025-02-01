@@ -8,6 +8,7 @@ YHEIGHT	=	24
 # Syscalls
 .equ SYSCALL_EXIT,	1
 .equ SYSCALL_WRITE,	4
+.equ SYSCALL_NANOSLEEP,162
 #
 .equ STDIN,0
 .equ STDOUT,1
@@ -16,82 +17,71 @@ YHEIGHT	=	24
 @ register allocation
 @
 @ r0, r1 = arguments
+@ r4 = o
+@ r5 = c
 @ r6 = output pointer
 @ r7 = temp
 @ r8 = t
+@ r9 = x
+@ r10 = y
+@ r11 = o
+@ r12 = c
+@ r13 = stack
+@ r14 = link register
+@ r15 = program counter
+
         .globl _start
 _start:
-	ldr	r6,=out_buffer
+
 	mov	r8,#0
 
-plasma_loop:					@ while(1) {
-	ldr	r0,=move_to_start		@ strcpy(output,"\x1b[1;1H");
+plasma_loop:				@ while(1) {
+	ldr	r6,=out_buffer
+	ldr	r0,=move_to_start	@ strcpy(output,"\x1b[1;1H");
 	bl	strcat
 
-.if 0
-		for(y=0;y<24;y++) {
-			for(x=0;x<80;x++) {
-				xx=x<<9;	// xx=(x<<16)>>7;
-				yy=y<<9;	// yy=(y<<16)>>7;
-				c=our_cos(xx+t)+ // cos
-					our_sin(yy)+t*2;
-				//o=(c*64.0);	// <<5 then >> 16
-
-				o=c>>11;	// o=((c<<5)>>16);
-
-				int cc=c>>8;
-
-				sprintf(string,
-					"\x1b[38;2;%d;%d;%dm%c",
-					(cc&0x3f)*4,
-					((cc+32)&0x3f)*4,
-					((cc+48)&0x3f)*4,
-					(o&0x3f)+' ');
-
-				strcat(output,string);
-			}
-			strcat(output,"\n");
-
-		}
-.endif
-
-
-.if 0
-
-forever_loop:
-	movs	r2,#0				@ clear strcat count
-
-
-	ldr	r6,=out_buffer
-
-	@ clear screen
-	mov	r0,#4
-	ldr	r1,=clear_screen
-	bl	strcat_loop
-
-	movs	r4,#0				@ set Y to 0
+	mov	r10,#0			@ for(y=0;y<24;y++) {
 yloop:
-
-	mov	r5,#0				@ set X to 0
+	mov	r9,#0			@ for(x=0;x<80;x++) {
 xloop:
+	add	r0,r8,r9,ASL #9		@ xx=(x<<9)+t;	// xx=(x<<16)>>7;
+	bl	our_cos			@ c=our_cos(xx)
+	mov	r4,r0
 
-	mov	r9,#'A'
-	strb	r9,[r6,r2]		@ store to out_buffer+r2
-	adds	r2,r2,#1
+	mov	r0,r10,ASL #9		@ yy=y<<9;	// yy=(y<<16)>>7;
+	bl	our_sin			@ c=c+ // cos
 
-	adds	r5,r5,#1		@ increment X
-	cmp	r5,#XWIDTH
-	bne	xloop
+	add	r12,r0,r4
+	add	r12,r12,r8
 
-	mov	r9,#'\n'
-	strb	r9,[r6,r2]
-	adds	r2,r2,#1
+	@ FIXME shift if by 8 earlier than by 3
 
-	adds	r4,r4,#1			@ increment Y
-	cmp	r4,#YHEIGHT
-	bne	yloop
+					@	our_sin(yy)+t*2;
+	mov	r4,r12,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
+	mov	r5,r12,LSR #8		@ cc=c>>8;
 
-.endif
+@				sprintf(string,
+@					"\x1b[38;2;%d;%d;%dm%c",
+@					(cc&0x3f)*4,
+@					((cc+32)&0x3f)*4,
+@					((cc+48)&0x3f)*4,
+@					(o&0x3f)+' ');
+	and	r1,r4,#0x3f	@	mov	r1,#'A'
+	add	r1,r1,#' '
+	bl	strcat_char
+
+				@ strcat(output,string);
+
+	add	r9,r9,#1	@ increment x
+	cmp	r9,#XWIDTH
+	bne	xloop		@ loop
+
+	ldr	r0,=linefeed	@	strcat(output,"\n");
+	bl	strcat
+
+	add	r10,r10,#1	@ increment y
+	cmp	r10,#YHEIGHT
+	bne	yloop		@ loop
 
 
 	@ length=strlen(output);
@@ -110,13 +100,40 @@ write_stdout:
 	movs	r7,#SYSCALL_WRITE
 	swi	#0
 
-@	usleep(30000);
-@	t=t+0x148; // (1/200)
+	@=================================
+	@ usleep
+	@=================================
 
-	add	r8,r8,#0x148
+	@	usleep(30000);
+
+	@ setup pointer to timespec struct
+
+	ldr	r0,=timespec_30k	@ struct timespec
+	mov	r1,#0			@ NULL pointer
+
+	movs	r7,#SYSCALL_NANOSLEEP
+	swi	#0
+
+	@==========================
+
+	add	r8,r8,#0x148		@	t=t+0x148; // (1/200)
 
 
-	b	plasma_loop
+	@==========================
+
+	b	plasma_loop		@	loop forever
+
+
+	@================================
+	@ strcat_char
+	@================================
+	@ char in r1
+strcat_char:
+	ldr	r0,=output_char
+	strb	r1,[r0]
+
+	@ fallthrough
+
 
 	@================================
 	@ strcat
@@ -125,7 +142,8 @@ write_stdout:
 strcat:
 
 strcat_loop:
-	ldrsb	r7,[r0],#1		@ load input, then increment r1 after
+	ldrb	r7,[r0],#1		@ load input, then increment r1 after
+	cmp	r7,#0
 	beq	strcat_done
 	strb	r7,[r6],#1		@ store to out_buffer+r2
 	b	strcat_loop
@@ -138,20 +156,22 @@ fixed_mul:
 @	result=((x1*y1)>>16);		@
 
 
-
+	@==============================
+	@ our_cos
+	@==============================
+	@ input in r0, output in r0
 our_cos:
-@static int32_t our_cos(int32_t x) {
-@
-@	int32_t offset;
 
-@	offset=0x19220;	/* pi/2 */
+					@	offset=0x19220;	/* pi/2 */
 
-@//	offset=double_to_fixed(1.57);
-
-@	return our_sin(offset-x);
+					@	return our_sin(offset-x);
+	bx	lr
 
 
-
+	@==============================
+	@ our_sin
+	@==============================
+	@ input in r0, output in r0
 our_sin:
 @	int32_t result;
 @	int32_t x2,x3,x5;
@@ -168,19 +188,27 @@ our_sin:
 
 @	result=x-x3t+x5t;
 
-@	return result;
+	bx	lr			@ return result;
 
 
 
 
 .data
 
+output_char:
+	.byte	0,0
+
 color_string:
 	.ascii	"\033[40m "		@ 0
 linefeed:
-	.ascii	"\n"			@ 6
+	.ascii	"\n"			@
+	.byte 0
 move_to_start:
-	.ascii "\033[1;1H\000"		@ 6
+	.ascii "\033[1;1H"		@
+	.byte 0
+timespec_30k:
+	.word	0			@ seconds
+	.word	30000000		@ nanoseconds
 
 .bss
 .lcomm	out_buffer, 65536
