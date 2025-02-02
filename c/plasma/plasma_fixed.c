@@ -35,6 +35,16 @@ static int32_t our_sin(int32_t x) {
 	int32_t x2,x3,x5;
 	int32_t x3t,x5t;
 
+
+//	if (x>0x3243F) {
+//		fprintf(stderr,"%X\n",x);
+//	}
+
+	/* This approximation only works from roughly -pi to pi */
+	while(x>0x3243F) {		/* 0x3243f = roughly pi */
+		x=x-(0x3243F*2);
+	}
+
 	// sin(x) ~= x - (x^3)/3!  + (x^5)/5! - (x^7)/7!
 
 	x2=fixed_mul(x,x);
@@ -77,22 +87,29 @@ int main(int argc, char **argv) {
 	int32_t x,y,xx,yy;
 	int32_t c,t=0;
 	int o;
+	int t_direction=0;
 
 	char string[1024];
 
-//	printf("%X\n",double_to_fixed(1.0/120.0));
+//	printf("%X\n",double_to_fixed(3.14159265358979));
 
 //	exit(1);
 
 	while(1) {
+//		fprintf(stderr,"%d\n",t);
+
 		strcpy(output,"\x1b[1;1H");
 
 		for(y=0;y<24;y++) {
 			for(x=0;x<80;x++) {
 				xx=x<<9;	// xx=(x<<16)>>7;
+						// fixed point
+						// x/128
+						// so 0..0.625
 				yy=y<<9;	// yy=(y<<16)>>7;
+						// so 0..0.18
 				c=our_cos(xx+t)+ // cos
-					our_sin(yy)+t*2;
+					our_sin(yy)+t;
 				//o=(c*64.0);	// <<5 then >> 16
 
 				o=c>>11;	// o=((c<<5)>>16);
@@ -116,7 +133,16 @@ int main(int argc, char **argv) {
 
 		usleep(30000);
 		//t=t+double_to_fixed(1.0/200.0);
-		t=t+0x148; // (1/200)
+		if (t_direction) {
+			t=t+0x148; // (1/200)
+		}
+		else {
+			t=t-0x148; // (1/200)
+		}
+				// above 5 or so it get stuck and flashes?
+		if (t>0x50000) {
+			t_direction=!t_direction;
+		}
 
 	}
 	return 0;
