@@ -7,6 +7,9 @@
 @ 643 bytes -- return with pop {pc}
 @ 635 bytes -- optimize uses of pi with shifts and reverse-subtract
 @ 610 bytes -- print ; and do masking in strcat_num
+@ 582 bytes -- optimize sine routine
+
+@ TODO: run loops backward?
 
 XWIDTH	= 	80
 YHEIGHT	=	24
@@ -71,7 +74,6 @@ xloop:
 check_r12:
 	@ FIXME shift if by 8 earlier then by 3
 
-	mov	r4,r12,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 	mov	r5,r12,LSR #8		@ cc=c>>8;	// cc=(c>>8)
 
 
@@ -90,6 +92,7 @@ check_r12:
 	mov	r1,#'m'			@ m
 	bl	strcat_char
 
+	mov	r4,r12,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 	and	r1,r4,#0x3f		@ (o&0x3f)+' ');
 	add	r1,r1,#' '
 	bl	strcat_char
@@ -100,7 +103,7 @@ check_r12:
 	cmp	r9,#XWIDTH
 	bne	xloop		@ loop
 
-	ldr	r0,=linefeed	@	strcat(output,"\n");
+	ldr	r0,=linefeed	@ strcat(output,"\n");
 	bl	strcat
 
 	add	r10,r10,#1	@ increment y
@@ -199,8 +202,6 @@ fixed_mul:
 	@==============================
 	@ input in r0, output in r0
 our_cos:
-@	ldr	r1,=0x19220		@	offset=0x19220;	/* pi/2 */
-@	sub	r0,r1,r0		@	return our_sin((pi/2)-x);
 
 	rsb	r0,r0,r11,LSR #1	@	reverse subtract, r11>>1 = pi/2
 					@	return our_sin((pi/2)-x);
@@ -219,46 +220,36 @@ our_sin:
 
 sine_trunc:
 	cmp	r0,r11			@ if > pi
-	ble	done_trunc
+@	ble	done_trunc
 zoog:
 	subgt	r0,r0,r11,lsl #1	@ sub pi*2
-	b	sine_trunc
+	bgt	sine_trunc
 done_trunc:
 
 	mov	r7,r0			@ save r0 for later
 
-	mov	r0,r0
 	mov	r1,r0
-
 	bl	fixed_mul
 	mov	r2,r0			@ x2=fixed_mul(x,x);
 
-	mov	r0,r2
-	mov	r1,r7
+	mov	r1,r7			@ saved X into r1
 	bl	fixed_mul
 	mov	r3,r0			@ x3=fixed_mul(x2,x);
 
-	mov	r0,r3
-	mov	r1,r2
-	bl	fixed_mul
-	mov	r5,r0			@ x5=fixed_mul(x3,x2);
-
-	mov	r0,r3
-	ldr	r1,=0x2aab		@ double_to_fixed(1.0/6.0));
-	bl	fixed_mul
-	mov	r3,r0			@ x3t=fixed_mul(x3,0x2AAB);
-
-	mov	r0,r5
+	mov	r1,r2			@ x2 into r1
+	bl	fixed_mul		@ x5=fixed_mul(x3,x2);
 	ldr	r1,=0x222		@ double_to_fixed(1.0/120.0));
 	bl	fixed_mul
 	mov	r5,r0			@ x5t=fixed_mul(x5,0x222);
 
-	sub	r0,r7,r3		@ result=x-x3t+x5t;
+	mov	r0,r3
+	ldr	r1,=0x2aab		@ double_to_fixed(1.0/6.0));
+	bl	fixed_mul		@ x3t=fixed_mul(x3,0x2AAB);
+
+	sub	r0,r7,r0		@ result=x-x3t+x5t;
 	add	r0,r0,r5
 
-
 	pop	{r2,r3,r5,r7,pc}	@ and return
-
 
 
 	@#############################
@@ -297,7 +288,7 @@ divide_by_10:
 	mov	r4,#10				@ calculate remainder
 
 						@ could use "mls" on
-						@ armv6/armv7
+						@ thumb2? armv6/armv7
 	mul	r8,r7,r4
 	sub	r8,r1,r8
 
