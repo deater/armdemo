@@ -1,5 +1,11 @@
 @ ARM32/Thumb Plasma
 
+@ by Vince `deater` Weaver <vince@deater.net>
+
+@ plain C version, stripped, 5568 bytes
+@ 647 bytes -- original working arm32 assembly code
+
+
 XWIDTH	= 	80
 YHEIGHT	=	24
 
@@ -17,6 +23,7 @@ YHEIGHT	=	24
 @ register allocation
 @
 @ r0, r1 = arguments
+@ r3 = direction
 @ r4 = o
 @ r5 = c
 @ r6 = output pointer
@@ -24,7 +31,7 @@ YHEIGHT	=	24
 @ r8 = t
 @ r9 = x
 @ r10 = y
-@ r11 = o
+@ r11 = pi
 @ r12 = c
 @ r13 = stack
 @ r14 = link register
@@ -33,30 +40,35 @@ YHEIGHT	=	24
         .globl _start
 _start:
 
-	mov	r8,#0
+	mov	r8,#0			@ init t (time counter)
+	mov	r3,#0			@ direction
+	ldr	r11,=0x3243F		@ pi
 
 plasma_loop:				@ while(1) {
-	ldr	r6,=out_buffer
+	ldr	r6,=out_buffer		@ reset r6 to the output_buffer
 	ldr	r0,=move_to_start	@ strcpy(output,"\x1b[1;1H");
-	bl	strcat
+					@ FIXME: this never changes, can
+					@     we force bss to immediately
+					@ follow the data?
+
+	bl	strcat			@ concatenate on the end
 
 	mov	r10,#0			@ for(y=0;y<24;y++) {
 yloop:
 	mov	r9,#0			@ for(x=0;x<80;x++) {
 xloop:
 	add	r0,r8,r9,ASL #9		@ xx=(x<<9)+t;	// xx=(x<<16)>>7;
-	bl	our_cos			@ c=our_cos(xx)
-	mov	r4,r0
+	bl	our_cos			@ c=our_cos(xx+t)
+	mov	r4,r0			@ save result in r4
 
 	mov	r0,r10,ASL #9		@ yy=y<<9;	// yy=(y<<16)>>7;
-	bl	our_sin			@ c=c+ // cos
+	bl	our_sin			@ c=c+sin(yy)
 
-	add	r12,r0,r4
+	add	r12,r0,r4		@ c=t+cos+sin
 	add	r12,r12,r8
-
+check_r12:
 	@ FIXME shift if by 8 earlier than by 3
 
-					@	our_sin(yy)+t*2;
 	mov	r4,r12,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 	mov	r5,r12,LSR #8		@ cc=c>>8;
 
@@ -137,8 +149,12 @@ write_stdout:
 
 	@==========================
 
-	add	r8,r8,#0x148		@	t=t+0x148; // (1/200)
+	cmp	r3,#0
+	addeq	r8,r8,#0x148		@	t=t+0x148; // (1/200)
+	subne	r8,r8,#0x148		@	t=t+0x148; // (1/200)
 
+	cmp	r8,#0x50000
+	eorgt	r3,r3,#1
 
 	@==========================
 
@@ -193,7 +209,7 @@ fixed_mul:
 	@ input in r0, output in r0
 our_cos:
 	ldr	r1,=0x19220		@	offset=0x19220;	/* pi/2 */
-	sub	r0,r1,r0		@	return our_sin(offset-x);
+	sub	r0,r1,r0		@	return our_sin((pi/2)-x);
 
 	@ fallthrough
 
@@ -206,11 +222,21 @@ our_cos:
 	@ sin(x) ~= x - (x^3)/3!  + (x^5)/5! - (x^7)/7!
 
 our_sin:
-	push	{lr}
+	push	{r2,r3,r5,r7,lr}
+
+sine_trunc:
+	cmp	r0,r11			@ if > pi
+	ble	done_trunc
+zoog:
+	subgt	r0,r0,r11,lsl #1	@ sub pi*2
+	b	sine_trunc
+done_trunc:
+
 	mov	r7,r0			@ save r0 for later
 
 	mov	r0,r0
 	mov	r1,r0
+
 	bl	fixed_mul
 	mov	r2,r0			@ x2=fixed_mul(x,x);
 
@@ -234,10 +260,12 @@ our_sin:
 	bl	fixed_mul
 	mov	r5,r0			@ x5t=fixed_mul(x5,0x222);
 
-	add	r3,r3,r5
 	sub	r0,r7,r3		@ result=x-x3t+x5t;
+	add	r0,r0,r5
 
-	pop	{lr}
+
+	pop	{r2,r3,r5,r7,lr}
+	@ FIXME: PC
 	bx	lr			@ return result;
 
 
