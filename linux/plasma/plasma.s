@@ -9,9 +9,11 @@
 @ 610 bytes -- print ; and do masking in strcat_num
 @ 582 bytes -- optimize sine routine
 @ 574 bytes -- inline fixed_multiply
+@ 568 bytes -- use strcat_char for linefeed
+@ 562 bytes -- put zero data into bss
+@ 557 bytes -- use r12 for bss pointer
 
 @ TODO: run loops backward?
-@	gcc inlines multiply.  might be a win
 
 XWIDTH	= 	80
 YHEIGHT	=	24
@@ -39,7 +41,7 @@ YHEIGHT	=	24
 @ r9 = x
 @ r10 = y
 @ r11 = pi
-@ r12 = c
+@ r12 = bss_pointer
 @ r13 = stack
 @ r14 = link register
 @ r15 = program counter
@@ -50,9 +52,11 @@ _start:
 	mov	r8,#0			@ init t (time counter)
 	mov	r3,#0			@ direction
 	ldr	r11,=0x3243F		@ pi
-
+	ldr	r12,=bss_begin
 plasma_loop:				@ while(1) {
-	ldr	r6,=out_buffer		@ reset r6 to the output_buffer
+@	ldr	r6,=out_buffer		@ reset r6 to the output_buffer
+	add	r6,r12,#(out_buffer-bss_begin)
+
 	ldr	r0,=move_to_start	@ strcpy(output,"\x1b[1;1H");
 					@ FIXME: this never changes, can
 					@     we force bss to immediately
@@ -71,13 +75,11 @@ xloop:
 	mov	r0,r10,ASL #9		@ yy=y<<9;	// yy=(y<<16)>>7;
 	bl	our_sin			@ c=c+sin(yy)
 
-	add	r12,r0,r4		@ c=t+cos+sin
-	add	r12,r12,r8
-check_r12:
-	@ FIXME shift if by 8 earlier then by 3
+	add	r7,r0,r4		@ c=t+cos+sin
+	add	r7,r7,r8
 
-	mov	r5,r12,LSR #8		@ cc=c>>8;	// cc=(c>>8)
-
+	mov	r5,r7,LSR #8		@ cc=c>>8;	// cc=(c>>8)
+	mov	r4,r7,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 
 	ldr	r0,=color_string	@ "\x1b[38;2"
 	bl	strcat
@@ -94,19 +96,17 @@ check_r12:
 	mov	r1,#'m'			@ m
 	bl	strcat_char
 
-	mov	r4,r12,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
+
 	and	r1,r4,#0x3f		@ (o&0x3f)+' ');
 	add	r1,r1,#' '
 	bl	strcat_char
-
-				@ strcat(output,string);
 
 	add	r9,r9,#1	@ increment x
 	cmp	r9,#XWIDTH
 	bne	xloop		@ loop
 
-	ldr	r0,=linefeed	@ strcat(output,"\n");
-	bl	strcat
+	mov	r1,#'\n'	@ strcat(output,"\n");
+	bl	strcat_char
 
 	add	r10,r10,#1	@ increment y
 	cmp	r10,#YHEIGHT
@@ -116,8 +116,9 @@ check_r12:
 	@ length=strlen(output);
 	@ write(STDOUT_FILENO,output,length);
 
-	ldr	r1,=out_buffer
-	sub	r2,r6,r1
+@	ldr	r1,=out_buffer
+	add	r1,r12,#(out_buffer-bss_begin)
+	sub	r2,r6,r1		@ calculate length
 
 	@================================
 	@ write stdout
@@ -162,7 +163,8 @@ write_stdout:
 	@================================
 	@ char in r1
 strcat_char:
-	ldr	r0,=output_char
+	@ldr	r0,=output_char
+	add	r0,r12,#(output_char-bss_begin)
 	strb	r1,[r0]
 
 	@ fallthrough
@@ -261,7 +263,8 @@ strcat_num:
 	mov	r1,r1,LSL #2		@ multiply by 4 (adjust color)
 
 
-	ldr	r10,=(ascii_num+2)
+	add	r10,r12,#((ascii_num+2)-bss_begin)
+@	ldr	r10,=(ascii_num+2)
                                         @ point to end of our buffer
 
 div_by_10:
@@ -301,26 +304,25 @@ write_out:
 
 .data
 
-ascii_num:
-	.byte	0,0,0,0
+@ascii_num:
+@	.byte	0,0,0,0
 
-output_char:
-	.byte	0,0
+@output_char:
+@	.byte	0,0
 
 color_string:
 	.ascii	"\033[38;2"		@ 0
 	.byte	0
-@ FIXME: use output_char instead
-linefeed:
-	.ascii	"\n"			@
-	.byte 0
 move_to_start:
 	.ascii "\033[1;1H"		@
-	.byte 0
-@ FIXME: overlap if possible
+@	.byte 0				@ overlap with following
+
 timespec_30k:
 	.word	0			@ seconds
 	.word	30000000		@ nanoseconds
 
 .bss
+bss_begin:
+.lcomm	ascii_num,4
+.lcomm	output_char,2
 .lcomm	out_buffer, 65536
