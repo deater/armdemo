@@ -12,6 +12,8 @@
 @ 568 bytes -- use strcat_char for linefeed
 @ 562 bytes -- put zero data into bss
 @ 557 bytes -- use r12 for bss pointer
+@ 555 bytes -- use r12 for data pointer instead
+@ 551 bytes -- use ldm to load some constants
 
 @ TODO: run loops backward?
 
@@ -41,23 +43,30 @@ YHEIGHT	=	24
 @ r9 = x
 @ r10 = y
 @ r11 = pi
-@ r12 = bss_pointer
+@ r12 = data_pointer
 @ r13 = stack
 @ r14 = link register
 @ r15 = program counter
 
         .globl _start
 _start:
-
-	mov	r8,#0			@ init t (time counter)
 	mov	r3,#0			@ direction
-	ldr	r11,=0x3243F		@ pi
-	ldr	r12,=bss_begin
-plasma_loop:				@ while(1) {
-@	ldr	r6,=out_buffer		@ reset r6 to the output_buffer
-	add	r6,r12,#(out_buffer-bss_begin)
+@	mov	r8,#0			@ init t (time counter)
 
-	ldr	r0,=move_to_start	@ strcpy(output,"\x1b[1;1H");
+	ldr	r12,=data_begin
+@
+@	ldr	r11,=0x3243F		@ pi
+
+	ldm	r12,{r8,r11}		@ zero, pi
+
+plasma_loop:				@ while(1) {
+@	ldm	r12,{r6,r11}		@ out_buffer, pi
+
+	ldr	r6,=out_buffer		@ reset r6 to the output_buffer
+@	add	r6,r12,#(out_buffer-bss_begin)
+
+	add	r0,r12,#(move_to_start-data_begin)
+@	ldr	r0,=move_to_start	@ strcpy(output,"\x1b[1;1H");
 					@ FIXME: this never changes, can
 					@     we force bss to immediately
 					@ follow the data?
@@ -70,18 +79,19 @@ yloop:
 xloop:
 	add	r0,r8,r9,ASL #9		@ xx=(x<<9)+t;	// xx=(x<<16)>>7;
 	bl	our_cos			@ c=our_cos(xx+t)
-	mov	r4,r0			@ save result in r4
+	mov	r7,r0			@ save result in r7
 
 	mov	r0,r10,ASL #9		@ yy=y<<9;	// yy=(y<<16)>>7;
 	bl	our_sin			@ c=c+sin(yy)
 
-	add	r7,r0,r4		@ c=t+cos+sin
+	add	r7,r0,r7		@ c=t+cos+sin
 	add	r7,r7,r8
 
 	mov	r5,r7,LSR #8		@ cc=c>>8;	// cc=(c>>8)
 	mov	r4,r7,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 
-	ldr	r0,=color_string	@ "\x1b[38;2"
+	add	r0,r12,#(color_string-data_begin)
+@	ldr	r0,=color_string	@ "\x1b[38;2"
 	bl	strcat
 
 					@ print ';'
@@ -116,8 +126,8 @@ xloop:
 	@ length=strlen(output);
 	@ write(STDOUT_FILENO,output,length);
 
-@	ldr	r1,=out_buffer
-	add	r1,r12,#(out_buffer-bss_begin)
+	ldr	r1,=out_buffer
+@	add	r1,r12,#(out_buffer-bss_begin)
 	sub	r2,r6,r1		@ calculate length
 
 	@================================
@@ -138,7 +148,8 @@ write_stdout:
 
 	@ setup pointer to timespec struct
 
-	ldr	r0,=timespec_30k	@ struct timespec
+	add	r0,r12,#(timespec_30k-data_begin)
+@	ldr	r0,=timespec_30k	@ struct timespec
 	mov	r1,#0			@ NULL pointer
 
 	movs	r7,#SYSCALL_NANOSLEEP
@@ -164,7 +175,7 @@ write_stdout:
 	@ char in r1
 strcat_char:
 	@ldr	r0,=output_char
-	add	r0,r12,#(output_char-bss_begin)
+	add	r0,r12,#(output_char-data_begin)
 	strb	r1,[r0]
 
 	@ fallthrough
@@ -263,7 +274,7 @@ strcat_num:
 	mov	r1,r1,LSL #2		@ multiply by 4 (adjust color)
 
 
-	add	r10,r12,#((ascii_num+2)-bss_begin)
+	add	r10,r12,#((ascii_num+2)-data_begin)
 @	ldr	r10,=(ascii_num+2)
                                         @ point to end of our buffer
 
@@ -303,12 +314,15 @@ write_out:
 
 
 .data
+data_begin:
 
-@ascii_num:
-@	.byte	0,0,0,0
+ascii_num:
+	.byte	0,0,0,0
+pi:
+	.word	0x3243F		@ pi, goes in r11
 
-@output_char:
-@	.byte	0,0
+output_char:
+	.byte	0,0
 
 color_string:
 	.ascii	"\033[38;2"		@ 0
@@ -323,6 +337,6 @@ timespec_30k:
 
 .bss
 bss_begin:
-.lcomm	ascii_num,4
-.lcomm	output_char,2
+@.lcomm	ascii_num,4
+@.lcomm	output_char,2
 .lcomm	out_buffer, 65536
