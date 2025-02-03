@@ -184,20 +184,6 @@ strcat_done:
 	bx	lr			@ return
 
 
-	@=================================
-	@ 16.16 fixed point multiply
-	@=================================
-	@ input r0, r1
-	@ output r0
-	@ r1 trashed
-@fixed_mul:
-	@	result=((x1*y1)>>16);		@
-
-@	smull	r0, r1, r0, r1		@ r0*r1 -> {r1,r0}
-@	lsr	r0, r0, #16
-@	orr	r0, r0, r1, lsl #16
-@	bx	lr
-
 
 	@==============================
 	@ our_cos
@@ -218,7 +204,7 @@ our_cos:
 	@ sin(x) ~= x - (x^3)/3!  + (x^5)/5! - (x^7)/7!
 
 our_sin:
-	push	{r2,r3,r5,r7,lr}
+	push	{r1,r2,r3,r5,lr}
 
 	@ this approximation only really good -pi to pi
 	@	so bring back if out of bounds
@@ -229,61 +215,34 @@ sine_trunc:
 	bgt	sine_trunc
 done_trunc:
 
-@	mov	r7,r0			@ save r0 for later
+	@ x in r0
 
-@	mov	r1,r0
+	smull	r2, r1, r0, r0		@ (dl,dh)=m*n: r0*r0 -> {r2,r1}
+	lsr	r2, r2, #16		@ adjust for 16.16 fixed point
+	orr	r2, r2, r1, lsl #16	@ r2=fixed_mul(x*x);   (x^2)
 
-	smull	r2, r1, r0, r0		@ (dl,dh)=m*n: r0*r1 -> {r1,r0}
-	lsr	r2, r2, #16
-	orr	r2, r2, r1, lsl #16
-@	bx	lr
+	smull	r3, r1, r2, r0		@ (dl,dh)=m*n: r2*r0 -> {r3,r1}
+	lsr	r3, r3, #16		@ adjust for 16.16 fixed point
+	orr	r3, r3, r1, lsl #16	@ r3=fixed_mul(x^2,x); (x^3)
 
-@	bl	fixed_mul
-@	mov	r2,r0			@ x2=fixed_mul(x,x);
-
-@	mov	r0,r2
-@	mov	r1,r7			@ saved X into r1
-
-
-	smull	r3, r1, r2, r0		@ (dl,dh)=m*n: r0*r1 -> {r1,r0}
-	lsr	r3, r3, #16
-	orr	r3, r3, r1, lsl #16
-
-
-@	bl	fixed_mul
-@	mov	r3,r0			@ x3=fixed_mul(x2,x);
-
-@	mov	r0,r3
-@	mov	r1,r2			@ x2 into r1
-
-	smull	r5, r1, r3, r2		@ (dl,dh)=m*n: r0*r1 -> {r1,r0}
-	lsr	r5, r5, #16
-	orr	r5, r5, r1, lsl #16
-
-@	bl	fixed_mul		@ x5=fixed_mul(x3,x2);
+	smull	r5, r1, r3, r2		@ (dl,dh)=m*n: r3*r2 -> {r5,r1}
+	lsr	r5, r5, #16		@ adjust for 16.16 fixed point
+	orr	r5, r5, r1, lsl #16	@ x5=fixed_mul(x3,x2); (x^5)
 
 	ldr	r1,=0x222		@ double_to_fixed(1.0/120.0));
+	smull	r5, r1, r5, r1		@ (dl,dh)=m*n: r5*r1 -> {r5,r1}
+	lsr	r5, r5, #16		@ adjust for 16.16 fixed point
+	orr	r5, r5, r1, lsl #16	@ x5t=fixed_mul(x5,0x222); (x^5/5!)
 
-	smull	r5, r1, r5, r1		@ (dl,dh)=m*n: r0*r1 -> {r1,r0}
-	lsr	r5, r5, #16
-	orr	r5, r5, r1, lsl #16
-
-@	bl	fixed_mul
-@	mov	r5,r0			@ x5t=fixed_mul(x5,0x222);
-
-@	mov	r0,r3
 	ldr	r1,=0x2aab		@ double_to_fixed(1.0/6.0));
-
-	smull	r3, r1, r3, r1		@ (dl,dh)=m*n: r0*r1 -> {r1,r0}
-	lsr	r3, r3, #16
-	orr	r3, r3, r1, lsl #16
-
-@	bl	fixed_mul		@ x3t=fixed_mul(x3,0x2AAB);
+	smull	r3, r1, r3, r1		@ (dl,dh)=m*n: r3*r1 -> {r3,r1}
+	lsr	r3, r3, #16		@ adjust for 16.16 fixed point
+	orr	r3, r3, r1, lsl #16	@ x3t=fixed_mul(x3,0x2AAB); (x^3/3!)
 
 	sub	r0,r0,r3		@ result=x-x3t+x5t;
 	add	r0,r0,r5
 
-	pop	{r2,r3,r5,r7,pc}	@ and return
+	pop	{r1,r2,r3,r5,pc}	@ and return
 
 
 	@#############################
