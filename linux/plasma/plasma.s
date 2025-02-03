@@ -14,8 +14,11 @@
 @ 557 bytes -- use r12 for bss pointer
 @ 555 bytes -- use r12 for data pointer instead
 @ 551 bytes -- use ldm to load some constants
+@ 543 bytes -- ill-advised hacking up of strcat_num to print direct in string
 
-@ TODO: run loops backward?
+@ TODO: run loops backward? (save 8)
+@ TODO: irregular usleep by having the output char in bottom two bytes (save 2)
+
 
 XWIDTH	= 	80
 YHEIGHT	=	24
@@ -51,13 +54,14 @@ YHEIGHT	=	24
         .globl _start
 _start:
 	mov	r3,#0			@ direction
-@	mov	r8,#0			@ init t (time counter)
+	mov	r8,#0			@ init t (time counter)
 
 	ldr	r12,=data_begin
 @
 @	ldr	r11,=0x3243F		@ pi
 
-	ldm	r12,{r8,r11}		@ zero, pi
+@	ldm	r12,{r8,r11}		@ zero, pi
+	add	r11,r12,#(pi-data_begin)
 
 plasma_loop:				@ while(1) {
 @	ldm	r12,{r6,r11}		@ out_buffer, pi
@@ -90,9 +94,11 @@ xloop:
 	mov	r5,r7,LSR #8		@ cc=c>>8;	// cc=(c>>8)
 	mov	r4,r7,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 
-	add	r0,r12,#(color_string-data_begin)
+@	add	r0,r12,#(color_string-data_begin)
 @	ldr	r0,=color_string	@ "\x1b[38;2"
-	bl	strcat
+@	bl	strcat
+
+	add	r7,r12,#((r_string+2)-data_begin)
 
 					@ print ';'
 	bl	strcat_num		@ print red: cc in r5; (cc&0x3f)*4
@@ -103,20 +109,30 @@ xloop:
 	add	r5,r5,#16		@ print ';'
 	bl	strcat_num		@ print blue: ((cc+48)&0x3f)*4,
 
-	mov	r1,#'m'			@ m
-	bl	strcat_char
-
+@	mov	r1,#'m'			@ m
+@	bl	strcat_char
 
 	and	r1,r4,#0x3f		@ (o&0x3f)+' ');
 	add	r1,r1,#' '
-	bl	strcat_char
+@	bl	strcat_char
+	strb	r1,[r7,#-2]
+
+	add	r0,r12,#(color_string-data_begin)
+@	ldr	r0,=color_string	@ "\x1b[38;2"
+	bl	strcat
+
+
+
+
 
 	add	r9,r9,#1	@ increment x
 	cmp	r9,#XWIDTH
 	bne	xloop		@ loop
 
 	mov	r1,#'\n'	@ strcat(output,"\n");
-	bl	strcat_char
+	strb	r1,[r6],#1		@ store to out_buffer+r2
+
+@	bl	strcat_char
 
 	add	r10,r10,#1	@ increment y
 	cmp	r10,#YHEIGHT
@@ -175,11 +191,10 @@ write_stdout:
 	@ char in r1
 strcat_char:
 	@ldr	r0,=output_char
-	add	r0,r12,#(output_char-data_begin)
-	strb	r1,[r0]
+@	add	r0,r12,#(output_char-data_begin)
+@	strb	r1,[r0]
 
 	@ fallthrough
-
 
 	@================================
 	@ strcat
@@ -195,7 +210,6 @@ strcat_loop:
 	b	strcat_loop
 strcat_done:
 	bx	lr			@ return
-
 
 
 	@==============================
@@ -261,20 +275,21 @@ done_trunc:
 	@#############################
 	@ strcat_num
 	@#############################
-	@ r1 = value to print
+	@ r5 = value to print
+	@ r7 = address
 
 strcat_num:
 
-	push	{r2,r3,r4,r5,r7,r8,r9,r10,r11,r12,LR}	@ store return address on stack
+	push	{r2,r3,r4,r5,r8,r9,r10,r11,r12,LR}	@ store return address on stack
 
-	mov	r1,#';'			@ print semicolon before number
-	bl	strcat_char
+@	mov	r1,#';'			@ print semicolon before number
+@	bl	strcat_char
 
 	and	r1,r5,#0x3f		@ mask off
 	mov	r1,r1,LSL #2		@ multiply by 4 (adjust color)
 
 
-	add	r10,r12,#((ascii_num+2)-data_begin)
+@	add	r10,r12,#((ascii_num+2)-data_begin)
 @	ldr	r10,=(ascii_num+2)
                                         @ point to end of our buffer
 
@@ -285,55 +300,73 @@ div_by_10:
 	@    then divides by 2^32 (by ignoring the low 32-bits of result)
         @================================================================
 	@ r1=numerator
-	@ r7=quotient    r8=remainder
+	@ r9=quotient    r8=remainder
 	@ r5=trashed
+
+	@ always go 3 digits
+
+	mov	r10,#3
+
 divide_by_10:
 	ldr	r4,=429496730			@ 1/10 * 2^32
 	sub	r5,r1,r1,lsr #30
-	umull	r8,r7,r4,r5			@ {r8,r7}=r4*r5
+	umull	r8,r9,r4,r5			@ {r8,r9}=r4*r5
 
 	mov	r4,#10				@ calculate remainder
 
 						@ could use "mls" on
 						@ thumb2? armv6/armv7
-	mul	r8,r7,r4
+	mul	r8,r9,r4
 	sub	r8,r1,r8
 
-	@ r7=Q, R8=R
+	@ r9=Q, R8=R
 
 	add	r8,r8,#0x30	@ convert to ascii
-	strb	r8,[r10],#-1	@ store a byte, decrement pointer
-	adds	r1,r7,#0	@ move Q in for next divide, update flags
-	bne	div_by_10	@ if Q not zero, loop
+	strb	r8,[r7],#-1	@ store a byte, decrement pointer
+	mov	r1,r9		@ move Q in for next divide
+	subs	r10,r10,#1
+	bne	divide_by_10	@ if Q not zero, loop
 
+	@ ;000;000;000
 write_out:
-	add	r0,r10,#1	@ adjust pointer
-	pop	{r2,r3,r4,r5,r7,r8,r9,r10,r11,r12,LR}	@ restore return address from stack
+	add	r7,r7,#7	@ adjust pointer
+@	pop	{r2,r3,r4,r5,r8,r9,r10,r11,r12,LR}	@ restore return address from stack
 
-	b	strcat
+	pop	{r2,r3,r4,r5,r8,r9,r10,r11,r12,PC}	@ restore return address from stack
+
+@	b	strcat
 
 
 .data
 data_begin:
 
-ascii_num:
-	.byte	0,0,0,0
+@ascii_num:
+@	.byte	0,0,0,0
 pi:
 	.word	0x3243F		@ pi, goes in r11
 
-output_char:
-	.byte	0,0
+@output_char:
+@	.byte	0,0
 
 color_string:
-	.ascii	"\033[38;2"		@ 0
+	.ascii	"\033[38;2;"		@ 0
+r_string:
+	.ascii	"000;"
+g_string:
+	.ascii	"000;"
+b_string:
+	.ascii	"000m"
+char:
+	.byte	0
 	.byte	0
 move_to_start:
 	.ascii "\033[1;1H"		@
 @	.byte 0				@ overlap with following
-
 timespec_30k:
 	.word	0			@ seconds
 	.word	30000000		@ nanoseconds
+
+
 
 .bss
 bss_begin:
