@@ -48,13 +48,20 @@ static int32_t our_sin(int32_t x) {
 	// sin(x) ~= x - (x^3)/3!  + (x^5)/5! - (x^7)/7!
 
 	x2=fixed_mul(x,x);
+//	fprintf(stderr,"X2=%x\n",x2);
 	x3=fixed_mul(x2,x);
+//	fprintf(stderr,"X3=%x\n",x3);
 	x3t=fixed_mul(x3,0x2AAB);	// double_to_fixed(1.0/6.0));
+//	fprintf(stderr,"X3t=%x\n",x3t);
 
 	x5=fixed_mul(x3,x2);
+//	fprintf(stderr,"X5=%x\n",x5);
 	x5t=fixed_mul(x5,0x222);	// double_to_fixed(1.0/120.0));
-
+//	fprintf(stderr,"X5t=%x\n",x5t);
 	result=x-x3t+x5t;
+
+//	fprintf(stderr,"r=%x %x-%x+%x\n",result,x,x3t,x5t);
+
 
 	return result;
 }
@@ -95,7 +102,7 @@ int main(int argc, char **argv) {
 //	exit(1);
 
 	while(1) {
-//		fprintf(stderr,"%d\n",t);
+//		fprintf(stderr,"t=%X\n",t);
 
 		strcpy(output,"\x1b[1;1H");
 
@@ -109,6 +116,9 @@ int main(int argc, char **argv) {
 						// so 0..0.18
 				c=our_cos(xx+t)+ // cos
 					our_sin(yy)+t;
+
+//		fprintf(stderr,"cos=%X sin=%X T=%X C=%X\n",our_cos(xx+t),
+//					our_sin(yy),t,c);
 				//o=(c*64.0);	// <<5 then >> 16
 
 				o=c>>11;	// o=((c<<5)>>16);
@@ -132,7 +142,7 @@ int main(int argc, char **argv) {
 
 		usleep(30000);
 		//t=t+double_to_fixed(1.0/200.0);
-		if (t_direction) {
+		if (t_direction==0) {
 			t=t+0x148; // (1/200)
 		}
 		else {
