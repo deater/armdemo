@@ -4,7 +4,9 @@
 
 @ plain C version, stripped, 5568 bytes
 @ 647 bytes -- original working arm32 assembly code
-
+@ 643 bytes -- return with pop {pc}
+@ 635 bytes -- optimize uses of pi with shifts and reverse-subtract
+@ 610 bytes -- print ; and do masking in strcat_num
 
 XWIDTH	= 	80
 YHEIGHT	=	24
@@ -67,34 +69,23 @@ xloop:
 	add	r12,r0,r4		@ c=t+cos+sin
 	add	r12,r12,r8
 check_r12:
-	@ FIXME shift if by 8 earlier than by 3
+	@ FIXME shift if by 8 earlier then by 3
 
 	mov	r4,r12,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
-	mov	r5,r12,LSR #8		@ cc=c>>8;
+	mov	r5,r12,LSR #8		@ cc=c>>8;	// cc=(c>>8)
 
 
-	ldr	r0,=color_string	@ "\x1b[38;2;"
+	ldr	r0,=color_string	@ "\x1b[38;2"
 	bl	strcat
 
-	and	r1,r5,#0x3f
-	mov	r1,r1,LSL #2
-	bl	strcat_num		@ (cc&0x3f)*4,
+					@ print ';'
+	bl	strcat_num		@ print red: cc in r5; (cc&0x3f)*4
 
-	mov	r1,#';'			@ ;
-	bl	strcat_char
+	add	r5,r5,#32		@ print ';'
+	bl	strcat_num		@ print green: ((cc+32)&0x3f)*4,
 
-	add	r5,r5,#32
-	and	r1,r5,#0x3f
-	mov	r1,r1,LSL #2
-	bl	strcat_num		@ ((cc+32)&0x3f)*4,
-
-	mov	r1,#';'			@ ;
-	bl	strcat_char
-
-	add	r5,r5,#16
-	and	r1,r5,#0x3f
-	mov	r1,r1,LSL #2
-	bl	strcat_num		@ ((cc+48)&0x3f)*4,
+	add	r5,r5,#16		@ print ';'
+	bl	strcat_num		@ print blue: ((cc+48)&0x3f)*4,
 
 	mov	r1,#'m'			@ m
 	bl	strcat_char
@@ -208,9 +199,11 @@ fixed_mul:
 	@==============================
 	@ input in r0, output in r0
 our_cos:
-	ldr	r1,=0x19220		@	offset=0x19220;	/* pi/2 */
-	sub	r0,r1,r0		@	return our_sin((pi/2)-x);
+@	ldr	r1,=0x19220		@	offset=0x19220;	/* pi/2 */
+@	sub	r0,r1,r0		@	return our_sin((pi/2)-x);
 
+	rsb	r0,r0,r11,LSR #1	@	reverse subtract, r11>>1 = pi/2
+					@	return our_sin((pi/2)-x);
 	@ fallthrough
 
 
@@ -264,9 +257,7 @@ done_trunc:
 	add	r0,r0,r5
 
 
-	pop	{r2,r3,r5,r7,lr}
-	@ FIXME: PC
-	bx	lr			@ return result;
+	pop	{r2,r3,r5,r7,pc}	@ and return
 
 
 
@@ -276,7 +267,16 @@ done_trunc:
 	@ r1 = value to print
 
 strcat_num:
-	push	{r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,LR}	@ store return address on stack
+
+	push	{r2,r3,r4,r5,r7,r8,r9,r10,r11,r12,LR}	@ store return address on stack
+
+	mov	r1,#';'			@ print semicolon before number
+	bl	strcat_char
+
+	and	r1,r5,#0x3f		@ mask off
+	mov	r1,r1,LSL #2		@ multiply by 4 (adjust color)
+
+
 	ldr	r10,=(ascii_num+2)
                                         @ point to end of our buffer
 
@@ -310,12 +310,9 @@ divide_by_10:
 
 write_out:
 	add	r0,r10,#1	@ adjust pointer
-	pop	{r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,LR}	@ restore return address from stack
+	pop	{r2,r3,r4,r5,r7,r8,r9,r10,r11,r12,LR}	@ restore return address from stack
 
 	b	strcat
-
-@	bx	lr
-
 
 
 .data
@@ -327,7 +324,7 @@ output_char:
 	.byte	0,0
 
 color_string:
-	.ascii	"\033[38;2;"		@ 0
+	.ascii	"\033[38;2"		@ 0
 	.byte	0
 @ FIXME: use output_char instead
 linefeed:
