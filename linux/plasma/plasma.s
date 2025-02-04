@@ -61,7 +61,7 @@ _start:
 @	ldr	r11,=0x3243F		@ pi
 
 @	ldm	r12,{r8,r11}		@ zero, pi
-	add	r11,r12,#(pi-data_begin)
+	ldr	r11,[r12,#(pi-data_begin)]
 
 plasma_loop:				@ while(1) {
 @	ldm	r12,{r6,r11}		@ out_buffer, pi
@@ -130,9 +130,7 @@ xloop:
 	bne	xloop		@ loop
 
 	mov	r1,#'\n'	@ strcat(output,"\n");
-	strb	r1,[r6],#1		@ store to out_buffer+r2
-
-@	bl	strcat_char
+	strb	r1,[r6],#1	@ store to out_buffer, increment
 
 	add	r10,r10,#1	@ increment y
 	cmp	r10,#YHEIGHT
