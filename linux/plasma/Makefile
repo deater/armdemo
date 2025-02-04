@@ -71,4 +71,4 @@ plasma.o:	plasma.s
 
 
 clean:	
-	rm -f *~ *.o plasma plasma_slow
+	rm -f *~ *.o plasma plasma_elf

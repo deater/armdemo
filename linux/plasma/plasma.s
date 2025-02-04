@@ -1,6 +1,15 @@
-@ ARM32/Thumb Plasma
+@ ARM Miasma -- ARM32/Thumb Plasma
+@ For ARMv6 Pi1 systems (no Thumb2, no divide instruction)
 
 @ by Vince `deater` Weaver <vince@deater.net>
+
+@ Note: doesn't look like we could use THUMB for anything useful
+
+@ Things that might break someday
+@	+ We assume bss follows right after data and we can write from
+@		one into the other
+@	+ The "-N" option to ld gives this warning
+@		ld: warning: plasma has a LOAD segment with RWX permissions
 
 @ plain C version, stripped, 5568 bytes
 @ 647 bytes -- original working arm32 assembly code
@@ -15,10 +24,12 @@
 @ 555 bytes -- use r12 for data pointer instead
 @ 551 bytes -- use ldm to load some constants
 @ 543 bytes -- ill-advised hacking up of strcat_num to print direct in string
+@ 539 bytes -- optimize strcat
+@ 527 bytes -- keep the clear chars in data seg and write off the end into bss
+@ 519 bytes -- inline stcat as we're down to one callsite
 
-@ TODO: run loops backward? (save 8)
-@ TODO: irregular usleep by having the output char in bottom two bytes (save 2)
-
+@ TODO: run loops backward? (would save 8 bytes)
+@ TODO: put data in ELF header?
 
 XWIDTH	= 	80
 YHEIGHT	=	24
@@ -55,30 +66,28 @@ YHEIGHT	=	24
 _start:
 	mov	r3,#0			@ direction
 	mov	r8,#0			@ init t (time counter)
-
-	ldr	r12,=data_begin
-@
-@	ldr	r11,=0x3243F		@ pi
-
 @	ldm	r12,{r8,r11}		@ zero, pi
-	ldr	r11,[r12,#(pi-data_begin)]
+
+	ldr	r12,=data_begin			@ setup pointer to data seg
+	ldr	r11,[r12,#(pi-data_begin)]	@ load pi
+		@ FIXME: load and overwrite
 
 plasma_loop:				@ while(1) {
-@	ldm	r12,{r6,r11}		@ out_buffer, pi
 
-	ldr	r6,=out_buffer		@ reset r6 to the output_buffer
-@	add	r6,r12,#(out_buffer-bss_begin)
+	@===============================
+	@ reset r6 to the output_buffer
 
-	add	r0,r12,#(move_to_start-data_begin)
-@	ldr	r0,=move_to_start	@ strcpy(output,"\x1b[1;1H");
-					@ FIXME: this never changes, can
-					@     we force bss to immediately
-					@ follow the data?
+	add	r6,r12,#(real_start-data_begin)
 
-	bl	strcat			@ concatenate on the end
+	@===============================
+	@ y loop
 
 	mov	r10,#0			@ for(y=0;y<24;y++) {
 yloop:
+
+	@===============================
+	@ x loop
+
 	mov	r9,#0			@ for(x=0;x<80;x++) {
 xloop:
 	add	r0,r8,r9,ASL #9		@ xx=(x<<9)+t;	// xx=(x<<16)>>7;
@@ -94,10 +103,6 @@ xloop:
 	mov	r5,r7,LSR #8		@ cc=c>>8;	// cc=(c>>8)
 	mov	r4,r7,LSR #11		@ o=c>>11;	// o=((c<<5)>>16);
 
-@	add	r0,r12,#(color_string-data_begin)
-@	ldr	r0,=color_string	@ "\x1b[38;2"
-@	bl	strcat
-
 	add	r7,r12,#((r_string+2)-data_begin)
 
 					@ print ';'
@@ -109,25 +114,42 @@ xloop:
 	add	r5,r5,#16		@ print ';'
 	bl	strcat_num		@ print blue: ((cc+48)&0x3f)*4,
 
-@	mov	r1,#'m'			@ m
-@	bl	strcat_char
-
 	and	r1,r4,#0x3f		@ (o&0x3f)+' ');
-	add	r1,r1,#' '
-@	bl	strcat_char
-	strb	r1,[r7,#-2]
+	add	r1,r1,#' '		@ print the character
+	strb	r1,[r7,#-2]		@ store and adjust output pointer
+					@ -2 so the +5 that happens later
+					@ goes to right place
+
+	@======================================================
+	@ point to our constructed string with colors to strcat
 
 	add	r0,r12,#(color_string-data_begin)
-@	ldr	r0,=color_string	@ "\x1b[38;2"
-	bl	strcat
+	@bl	strcat
+
+	@================================
+	@ strcat
+	@================================
+	@ r0: nul-terminated string in r0
+	@ r6: output pointer
+	@ r7: trashed
+strcat:
+
+strcat_loop:
+	ldrb	r7,[r0],#1		@ load input, then increment r1 after
+	cmp	r7,#0
+	strneb	r7,[r6],#1		@ store to out_buffer, increment
+	bne	strcat_loop
+strcat_done:
+@	bx	lr			@ return
 
 
-
-
+	@==========================================
 
 	add	r9,r9,#1	@ increment x
 	cmp	r9,#XWIDTH
 	bne	xloop		@ loop
+
+	@==========================================
 
 	mov	r1,#'\n'	@ strcat(output,"\n");
 	strb	r1,[r6],#1	@ store to out_buffer, increment
@@ -136,13 +158,11 @@ xloop:
 	cmp	r10,#YHEIGHT
 	bne	yloop		@ loop
 
+	@===========================================
+	@ setup pointer and length for write()
 
-	@ length=strlen(output);
-	@ write(STDOUT_FILENO,output,length);
-
-	ldr	r1,=out_buffer
-@	add	r1,r12,#(out_buffer-bss_begin)
-	sub	r2,r6,r1		@ calculate length
+	add	r1,r12,#(move_to_start-data_begin)
+	sub	r2,r6,r1		@ calculate length, put in r2
 
 	@================================
 	@ write stdout
@@ -155,7 +175,7 @@ write_stdout:
 	swi	#0
 
 	@=================================
-	@ usleep
+	@ nanosleep
 	@=================================
 
 	@	usleep(30000);
@@ -163,17 +183,19 @@ write_stdout:
 	@ setup pointer to timespec struct
 
 	add	r0,r12,#(timespec_30k-data_begin)
-@	ldr	r0,=timespec_30k	@ struct timespec
 	mov	r1,#0			@ NULL pointer
 
 	movs	r7,#SYSCALL_NANOSLEEP
 	swi	#0
 
 	@==========================
+	@ inc/dec the 't' variable
 
 	cmp	r3,#0
 	addeq	r8,r8,#0x148		@	t=t+0x148; // (1/200)
 	subne	r8,r8,#0x148		@	t=t+0x148; // (1/200)
+
+	@ if t gets too big then flip direction
 
 	cmp	r8,#0x50000
 	eorgt	r3,r3,#1
@@ -183,31 +205,7 @@ write_stdout:
 	b	plasma_loop		@	loop forever
 
 
-	@================================
-	@ strcat_char
-	@================================
-	@ char in r1
-strcat_char:
-	@ldr	r0,=output_char
-@	add	r0,r12,#(output_char-data_begin)
-@	strb	r1,[r0]
 
-	@ fallthrough
-
-	@================================
-	@ strcat
-	@================================
-	@ string in r0
-strcat:
-
-strcat_loop:
-	ldrb	r7,[r0],#1		@ load input, then increment r1 after
-	cmp	r7,#0
-	beq	strcat_done
-	strb	r7,[r6],#1		@ store to out_buffer+r2
-	b	strcat_loop
-strcat_done:
-	bx	lr			@ return
 
 
 	@==============================
@@ -280,16 +278,12 @@ strcat_num:
 
 	push	{r2,r3,r4,r5,r8,r9,r10,r11,r12,LR}	@ store return address on stack
 
-@	mov	r1,#';'			@ print semicolon before number
-@	bl	strcat_char
+	@==================================================
+	@ we take result, mask to 0..63, then multiply by 4
+	@	so closer to 256
 
 	and	r1,r5,#0x3f		@ mask off
 	mov	r1,r1,LSL #2		@ multiply by 4 (adjust color)
-
-
-@	add	r10,r12,#((ascii_num+2)-data_begin)
-@	ldr	r10,=(ascii_num+2)
-                                        @ point to end of our buffer
 
 div_by_10:
 	@================================================================
@@ -328,23 +322,14 @@ divide_by_10:
 	@ ;000;000;000
 write_out:
 	add	r7,r7,#7	@ adjust pointer
-@	pop	{r2,r3,r4,r5,r8,r9,r10,r11,r12,LR}	@ restore return address from stack
 
-	pop	{r2,r3,r4,r5,r8,r9,r10,r11,r12,PC}	@ restore return address from stack
-
-@	b	strcat
-
+	pop	{r2,r3,r4,r5,r8,r9,r10,r11,r12,PC}	@ restore and return
 
 .data
 data_begin:
 
-@ascii_num:
-@	.byte	0,0,0,0
 pi:
 	.word	0x3243F		@ pi, goes in r11
-
-@output_char:
-@	.byte	0,0
 
 color_string:
 	.ascii	"\033[38;2;"		@ 0
@@ -357,17 +342,17 @@ b_string:
 char:
 	.byte	0
 	.byte	0
-move_to_start:
-	.ascii "\033[1;1H"		@
-@	.byte 0				@ overlap with following
+
 timespec_30k:
 	.word	0			@ seconds
 	.word	30000000		@ nanoseconds
 
+move_to_start:
+	.ascii "\033[1;1H"		@
+real_start:
 
 
 .bss
 bss_begin:
-@.lcomm	ascii_num,4
-@.lcomm	output_char,2
 .lcomm	out_buffer, 65536
+
