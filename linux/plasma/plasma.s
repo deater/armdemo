@@ -27,6 +27,7 @@
 @ 539 bytes -- optimize strcat
 @ 527 bytes -- keep the clear chars in data seg and write off the end into bss
 @ 519 bytes -- inline stcat as we're down to one callsite
+@ 518 bytes -- remove extraneous 0 in data
 
 @ TODO: run loops backward? (would save 8 bytes)
 @ TODO: put data in ELF header?
@@ -238,7 +239,10 @@ sine_trunc:
 	bgt	sine_trunc
 done_trunc:
 
-	@ x in r0
+	@ want:
+	@ 	x in r0		x*x = 16.16     ?.16,16.? *x -> 16.16
+	@	x^3 in r3		is there a 64x32 instruction?
+	@	x^5 in r5
 
 	smull	r2, r1, r0, r0		@ (dl,dh)=m*n: r0*r0 -> {r2,r1}
 	lsr	r2, r2, #16		@ adjust for 16.16 fixed point
@@ -301,7 +305,7 @@ div_by_10:
 
 divide_by_10:
 	ldr	r4,=429496730			@ 1/10 * 2^32
-	sub	r5,r1,r1,lsr #30
+	sub	r5,r1,r1,lsr #30		@ adjust
 	umull	r8,r9,r4,r5			@ {r8,r9}=r4*r5
 
 	mov	r4,#10				@ calculate remainder
@@ -340,8 +344,8 @@ g_string:
 b_string:
 	.ascii	"000m"
 char:
-	.byte	0
-	.byte	0
+	.byte	0			@ spot for the output char
+@	.byte	0			@ NUL terminator
 
 timespec_30k:
 	.word	0			@ seconds
