@@ -1,4 +1,7 @@
 @ ARM Miasma -- ARM32/Thumb Plasma
+
+@ o/~ The sun is a miasma of incandescent plasma o/~ -- TMBG
+
 @ For ARMv6 Pi1 systems (no Thumb2, no divide instruction)
 
 @ by Vince `deater` Weaver <vince@deater.net>
@@ -10,6 +13,9 @@
 @		one into the other
 @	+ The "-N" option to ld gives this warning
 @		ld: warning: plasma has a LOAD segment with RWX permissions
+
+@ See if you notice the discontinuity due to us only using 3 terms
+@	in the sine taylor series
 
 @ plain C version, stripped, 5568 bytes
 @ 647 bytes -- original working arm32 assembly code
@@ -28,8 +34,8 @@
 @ 527 bytes -- keep the clear chars in data seg and write off the end into bss
 @ 519 bytes -- inline stcat as we're down to one callsite
 @ 518 bytes -- remove extraneous 0 in data
+@ 510 bytes -- have loops run backward
 
-@ TODO: run loops backward? (would save 8 bytes)
 @ TODO: put data in ELF header?
 
 XWIDTH	= 	80
@@ -83,13 +89,15 @@ plasma_loop:				@ while(1) {
 	@===============================
 	@ y loop
 
-	mov	r10,#0			@ for(y=0;y<24;y++) {
+@	mov	r10,#0			@ for(y=0;y<24;y++) {
+	mov	r10,#(YHEIGHT-1)
 yloop:
 
 	@===============================
 	@ x loop
 
-	mov	r9,#0			@ for(x=0;x<80;x++) {
+@	mov	r9,#0			@ for(x=0;x<80;x++) {
+	mov	r9,#(XWIDTH-1)
 xloop:
 	add	r0,r8,r9,ASL #9		@ xx=(x<<9)+t;	// xx=(x<<16)>>7;
 	bl	our_cos			@ c=our_cos(xx+t)
@@ -146,18 +154,24 @@ strcat_done:
 
 	@==========================================
 
-	add	r9,r9,#1	@ increment x
-	cmp	r9,#XWIDTH
-	bne	xloop		@ loop
+@	add	r9,r9,#1	@ increment x
+@	cmp	r9,#XWIDTH
+@	bne	xloop		@ loop
+
+	subs	r9,r9,#1
+	bpl	xloop
 
 	@==========================================
 
 	mov	r1,#'\n'	@ strcat(output,"\n");
 	strb	r1,[r6],#1	@ store to out_buffer, increment
 
-	add	r10,r10,#1	@ increment y
-	cmp	r10,#YHEIGHT
-	bne	yloop		@ loop
+@	add	r10,r10,#1	@ increment y
+@	cmp	r10,#YHEIGHT
+@	bne	yloop		@ loop
+
+	subs	r10,r10,#1
+	bpl	yloop
 
 	@===========================================
 	@ setup pointer and length for write()
