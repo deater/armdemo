@@ -1,7 +1,25 @@
-Thumb
--
-
-?-byte Intro for Raspberry Pi/Linux
+ARM Miasma
+==========
 
 by Deater / dSr
+~~~~~~~~~~~~~~~
+
+510-byte Intro for ARMv6
+Raspberry Pi/Linux
+
+Text mode with RGB
+ANSI control codes
+
+Coded in ARM32 assembly
+No Thumb, No Thumb-2
+No Divide instructions
+
+No libraries (static
+linked, directly
+calling Linux
+syscalls)
+
+sin/cos calculated with 3 terms of
+taylor series, if you watch long
+enough you'll hit a discontinuity
 

@@ -10,33 +10,32 @@ SSTRIP = ../../sstrip/sstrip
 LDFLAGS = -N
 ASFLAGS =
 
-
 all:	plasma
 
 ###
 
 submit:	plasma.zip
 
-plasma.zip:	plasma_asm.s file_id.diz
-	mkdir -p lovebyte2025_plasma_256
-	cp plasma_asm ./lovebyte2025_plasma_256
-	cp plasma_asm.s ./lovebyte2025_plasma_256
-	cp file_id.diz ./lovebyte2025_plasma_256
-	cp plasma_720p.mp4 ./lovebyte2025_plasma_256
-	cp plasma_arm.jpg ./lovebyte2025_plasma_256
-	zip -r plasma.zip lovebyte2025_plasma_256
+plasma.zip:	plasma.s file_id.diz
+	mkdir -p lovebyte2025_pimiasma_512
+	cp plasma ./lovebyte2025_pimiasma_512
+	cp plasma.s ./lovebyte2025_pimiasma_512
+	cp file_id.diz ./lovebyte2025_pimiasma_512
+	cp plasma_720p.mp4 ./lovebyte2025_pimiasma_512
+	cp plasma_arm.jpg ./lovebyte2025_pimiasma_512
+	zip -r plasma.zip lovebyte2025_pimiasma_512
 
 ###
 
 pouet:	plasma_pouet.zip
 
-plasma_pouet.zip:	plasma_asm.s file_id.diz
-	mkdir -p lovebyte2025_plasma_256
-	cp plasma_asm ./lovebyte2025_plasma_256
-	cp plasma_asm.s ./lovebyte2025_plasma_256
-	cp file_id.diz ./lovebyte2025_plasma_256
-	cp plasma_arm.jpg ./lovebyte2025_plasma_256
-	zip -r plasma_pouet.zip lovebyte2025_plasma_256
+plasma_pouet.zip:	plasma.s file_id.diz
+	mkdir -p lovebyte2025_pimiasma_512
+	cp plasma ./lovebyte2025_pimiasma_512
+	cp plasma.s ./lovebyte2025_pimiasma_512
+	cp file_id.diz ./lovebyte2025_pimiasma_512
+	cp plasma_arm.jpg ./lovebyte2025_pimiasma_512
+	zip -r plasma_pouet.zip lovebyte2025_pimiasma_512
 
 ###
 
