@@ -216,7 +216,7 @@ L:
 			framebuffer_putpixel(x,y,color);
 		}
 	}
-//	usleep(10000);
+	usleep(10000);
 
 	frame++;		// increment frame counter
 
