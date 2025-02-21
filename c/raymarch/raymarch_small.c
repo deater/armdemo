@@ -13,15 +13,6 @@
 
 static int t=0;
 
-#if 0
-static int pix(int x, int y, int color) {
-
-
-	printf("%d %d %d\n",x,y,color);
-
-	return 0;
-}
-#endif
 
 int main(int argc, char **argv) {
 
@@ -33,23 +24,24 @@ int main(int argc, char **argv) {
 	while(1) {
 		t=t-1;
 
-		for(i=0;i<30000;i++) {
+		for(i=0;i<3840;i++) {
 			d=0;
-			x=i%240;
-			y=i/240;
+			x=i%80;
+			y=i/80;
 
 			do {
 				d=d+1;
 				//h=(d*(x-d)^(y*d))/256&(t-d);
-				h=((d*(x-d)^(y*d))/256)&(t-d);
+				h=((d*(x-d)^(y*d))/32)&(t-d);
 			} while((h&8)<=0);
 
-			pix(x,y,h&0xff);
+//			if ((h<0) || (h>15)) h=0;
+			pix(x,y,h);
 		}
 
 		mode13h_graphics_update();
 		/* 60fps */
-		usleep(16666);
+		usleep(33666);
 
 		if (graphics_input()) {
 			return 0;
