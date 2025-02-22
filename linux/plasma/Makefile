@@ -14,28 +14,29 @@ all:	plasma
 
 ###
 
-submit:	plasma.zip
+submit:	pi_miasma.zip
 
-plasma.zip:	plasma.s file_id.diz
+pi_miasma.zip:	plasma.s file_id.diz
 	mkdir -p lovebyte2025_pimiasma_512
 	cp plasma ./lovebyte2025_pimiasma_512
 	cp plasma.s ./lovebyte2025_pimiasma_512
 	cp file_id.diz ./lovebyte2025_pimiasma_512
 	cp plasma_720p.mp4 ./lovebyte2025_pimiasma_512
-	cp plasma_arm.jpg ./lovebyte2025_pimiasma_512
-	zip -r plasma.zip lovebyte2025_pimiasma_512
+	cp pi_miasma.png ./lovebyte2025_pimiasma_512
+	zip -r pi_miasma.zip lovebyte2025_pimiasma_512
 
 ###
 
-pouet:	plasma_pouet.zip
+pouet_submit:	pi_miasma_pouet.zip
 
-plasma_pouet.zip:	plasma.s file_id.diz
+pi_miasma_pouet.zip:	plasma.s file_id.diz
 	mkdir -p lovebyte2025_pimiasma_512
 	cp plasma ./lovebyte2025_pimiasma_512
 	cp plasma.s ./lovebyte2025_pimiasma_512
 	cp file_id.diz ./lovebyte2025_pimiasma_512
-	cp plasma_arm.jpg ./lovebyte2025_pimiasma_512
-	zip -r plasma_pouet.zip lovebyte2025_pimiasma_512
+	cp pi_miasma.png ./lovebyte2025_pimiasma_512
+	zip -r pi_miasma_pouet.zip lovebyte2025_pimiasma_512
+
 
 ###
 
