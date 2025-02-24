@@ -1,6 +1,3 @@
-# Attempt at Hellmood's "Star Path" demo in x86 Linux assembly
-#
-# by vince `deater` weaver
 
 # Syscalls
 .equ SYSCALL_EXIT,     1
@@ -74,11 +71,8 @@ write_stdout:
         xor     %ebx,%ebx               # put 1 in ebx (stdout)
         inc     %ebx                    # in 3 bytes of code
 
-	mov	$clear_screen,%ecx
-	mov	$(end_sixel_header-clear_screen),%edx
-
-#	mov	$out_buffer,%ecx
-#	mov	$65536,%edx
+	mov	$out_buffer,%ecx
+	mov	$65536,%edx
 
 	int     $0x80             	# and exit
 
@@ -123,14 +117,6 @@ write_out:
 #===========================================================================
 .data
 
-clear_screen:
-.ascii "\033[1;1H"
-start_sixel:
-.ascii "\033Pq\n"
-sixel_pal:
-.ascii "#0;2;0;0;0#1;2;6;6;6#2;2;12;12;12#3;2;18;18;18#4;2;24;24;24#5;2;30;30;30#6;2;36;36;36#7;2;42;42;42#8;2;48;48;48#9;2;54;54;54#10;2;60;60;60#11;2;66;66;66#12;2;72;72;72#13;2;78;78;78#14;2;84;84;84#15;2;90;90;90#16;2;0;0;25#17;2;6;0;25#18;2;12;0;25#19;2;18;0;25#20;2;24;0;24#21;2;25;0;18#22;2;25;0;12#23;2;25;0;6#24;2;25;25;0#25;2;25;25;0#26;2;25;25;0#27;2;25;25;0#28;2;25;25;0#29;2;19;25;0#30;2;13;25;0#31;2;7;25;0"
-end_sixel_header:
-
 #============================================================================
 #	section .bss
 #============================================================================
@@ -139,3 +125,6 @@ end_sixel_header:
 .lcomm	out_buffer,65536
 
 #.lcomm	disk_buffer,4096	# we cheat!!!!
+
+
+
