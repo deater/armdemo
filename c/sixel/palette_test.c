@@ -3,7 +3,7 @@
 int main(int argc, char **argv) {
 
 	FILE *fff;
-	int i,r,g,b;
+	int i,r,g,b,s;
 
 	fff=fopen("new.txt","w");
 	if (fff==NULL) return -1;
@@ -12,26 +12,24 @@ int main(int argc, char **argv) {
 	for(i=0;i<16;i++) {
 		fprintf(fff,"#%i;2;%d;%d;%d",i,i*6,i*6,i*6);
 	}
-
-	/* colors for sunset */
-
-	for(i=16;i<32;i++) {
-		r=(i-16)*6;
+	for(i=0;i<16;i++) {
+		s=i*6;
+		r=s;
 		if (r>25) r=25;
-		if ((i-16)>12) r-=6*(i-28);
+		if (i>12) r-=s-72;
 
-		if ((i-16)<8) g=0;
+		if (i<8) g=0;
 		else {
-			g=((i-24)*6);
+			g=s-48;
 		}
 		if (g>25) g=25;
 
-		if ((32-i)<8) b=0;
+		if ((16-i)<8) b=0;
 		else {
-			b=((32-8-i)*6);
+			b=48-s;
 		}
 		if (b>25) b=25;
-		fprintf(fff,"#%i;2;%d;%d;%d",i,r,g,b);
+		fprintf(fff,"#%i;2;%d;%d;%d",i+16,r,g,b);
 	}
 	fprintf(fff,"\n");
 	fclose(fff);
