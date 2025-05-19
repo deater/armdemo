@@ -10,26 +10,25 @@ int main(int argc, char **argv) {
 
 	/* grey gradient */
 	for(i=0;i<16;i++) {
-		fprintf(fff,"#%i;2;%d;%d;%d",i,i*6,i*6,i*6);
+		fprintf(fff,"#%i;2;%d;%d;%d\n",i,i*6,i*6,i*6);
 	}
 	for(i=0;i<16;i++) {
 		s=i*6;
-		r=s;
-		if (r>25) r=25;
-		if (i>12) r-=s-72;
+		// 0 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15
+		//              30 36 42 48 54  60 66 72 78 84 90
+		//                                        6 12 18
+		// 0 6 12 18 24 25 25 25 25 25  25 25 25 19 13  7
+		r=s>25?25-(s>72)*(s-72):s;
+//		r=s>25?25:s;
+//		if (s>72) r-=s-72;
 
-		if (i<8) g=0;
-		else {
-			g=s-48;
-		}
-		if (g>25) g=25;
 
-		if ((16-i)<8) b=0;
-		else {
-			b=48-s;
-		}
-		if (b>25) b=25;
-		fprintf(fff,"#%i;2;%d;%d;%d",i+16,r,g,b);
+		g=(s-48)*(i>7);
+		g=g>25?25:g;
+
+		b=(48-s)*(i<9);
+		b=b>25?25:b;
+		fprintf(fff,"#%i;2;%d;%d;%d\n",i+16,r,g,b);
 	}
 	fprintf(fff,"\n");
 	fclose(fff);
@@ -41,7 +40,7 @@ int main(int argc, char **argv) {
 
 	/* grey gradient */
 	for(i=0;i<16;i++) {
-		fprintf(fff,"#%i;2;%d;%d;%d",i,i*6,i*6,i*6);
+		fprintf(fff,"#%i;2;%d;%d;%d\n",i,i*6,i*6,i*6);
 	}
 
 	/* colors for sunset */
@@ -65,7 +64,7 @@ int main(int argc, char **argv) {
 			b=((32-8-i)*6);
 		}
 		if (b>25) b=25;
-		fprintf(fff,"#%i;2;%d;%d;%d",i,r,g,b);
+		fprintf(fff,"#%i;2;%d;%d;%d\n",i,r,g,b);
 	}
 	fprintf(fff,"\n");
 	fclose(fff);
