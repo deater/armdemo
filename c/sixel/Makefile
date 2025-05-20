@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2 -Wall
+CFLAGS = -O2 -Wall -g
 
 all:	test_sixel star_path_sixel star_path_sixel_test \
 	star_path_sixel_compact palette_test
