@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <unistd.h>
-int main(int argc,char**argv){
-char*a="#%i;2;%d;%d;%d\n",o[51200],b[]="-\n#%d";int f=0,c,d,x,y,p,r,s,t=256;
-for(;;){for(r=0;r<51200;){x=r%t;d=14;
-L:p=r/t*d;s=x-d;
-c=s&t?((x+p)&255)?r/t/16+32:27:(((s*d)|p)>>8)&(d+f);
-if(~s&t){d++; if ((c&16)==0) goto L;
-}o[r++]=c-16;}
+int main(int argc,char**argv){char*a="#%i;2;%d;%d;%d\n",o[51200],
+b[]="-\n#%d";int f=0,c,d,x,y,p,r,s,t=256;for(;;){for(r=0;r<51200;
+){x=r%t;d=13;L:d++;p=r/t*d;s=x-d;c=s&t?(x+p)&255?r/t/16+32:27:
+(((s*d)|p)>>8)&(d+f);if(~s&t)if(~c&16)goto L;
+o[r++]=c-16;}
 
 usleep(1e4);f++;puts("\n\033[1;1H\033Pq\n");
 for(s=0;s<96;s+=6)printf(a,s/6,s,s,s),
