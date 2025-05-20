@@ -1,0 +1,3 @@
+color only goes up to 200/16 = 13 or so?  simplify palette for that?
+can remove some () when == involved but get warnings
+swap b+w and colors?
