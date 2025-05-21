@@ -2,7 +2,8 @@ CC = gcc
 CFLAGS = -O2 -Wall -g
 
 all:	test_sixel star_path_sixel star_path_sixel_test \
-	star_path_sixel_compact palette_test
+	star_path_sixel_compact star_path_sixel_shape \
+	palette_test
 
 ###
 
@@ -31,6 +32,15 @@ star_path_sixel_compact.o:	star_path_sixel_compact.c
 
 ###
 
+star_path_sixel_shape:	star_path_sixel_shape.o
+	$(CC) -o star_path_sixel_shape star_path_sixel_shape.o $(LFLAGS)
+
+star_path_sixel_shape.o:	star_path_sixel_shape.c
+	$(CC) $(CFLAGS) -c star_path_sixel_shape.c
+
+
+###
+
 test_sixel:	test_sixel.o
 	$(CC) -o test_sixel test_sixel.o $(LFLAGS)
 
@@ -50,4 +60,5 @@ palette_tet.o:	palette_tet.c
 
 clean:	
 	rm -f *~ *.o star_path_sixel sixel test_sixel \
-	star_path_sixel_test star_path_pixel_compact palette_test
+	star_path_sixel_test star_path_pixel_compact star_path_pixel_shape \
+	palette_test
