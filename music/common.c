@@ -6,17 +6,14 @@
 #define OFFSET ':'
 #define OCTAVE_START	2	// start at A2
 
-static char notes[]= "AABCCDDEFFGG";
-static char sharps[]=" #  # #  # #";
-static int debug=1;
+static char notes[]= "CCDDEFFGGAAB";
+static char sharps[]=" # #  # # # ";
+static int debug=0;
 
-
-/* 0..63, add in ':' */
-
-/*  0 = A2 */
-/* 12 = A3 */
-/* 24 = A4 */
-/* 36 = A5 */
+/*  0 = C2 */
+/* 12 = C3 */
+/* 24 = C4 */
+/* 36 = C5 */
 /* ~ means silence and 0 means end of song */
 void print_note(int note) {
 
@@ -36,8 +33,26 @@ void print_note(int note) {
 	octave=(raw/12)+OCTAVE_START;
 	n=raw%12;
 
-	printf("%c%c%d\n",notes[n],sharps[n],octave);
+	printf("%c%c%d",notes[n],sharps[n],octave);
 
 	return;
 
 }
+
+
+#if 0
+
+int main(int argc, char **argv) {
+
+	int i;
+
+	for(i=0;i<64;i++) {
+		print_note(i+OFFSET);
+		printf("\n");
+	}
+
+	return 0;
+}
+
+
+#endif

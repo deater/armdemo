@@ -1,13 +1,13 @@
+/* This parses the cvs output from TIAtracker */
+
 #include <stdio.h>
 #include <string.h>
 
-#define OFFSET ':'
-#define OCTAVE_START	2	// start at A2
+#include "common.h"
 
-static char notes[]= "AABCCDDEFFGG";
-static char sharps[]=" #  # #  # #";
 static int debug=1;
 
+static int min_note=64,max_note=0;
 
 static int convert_note(char *note) {
 
@@ -15,16 +15,21 @@ static int convert_note(char *note) {
 
 	if (debug) fprintf(stderr,"Converting %s -- ",note);
 
-	if (note[2]=='-') return '~';
+	if (note[2]=='-') {
+//		printf("-------------------\n");
+		return '~';
+	}
+
 
 	switch(note[0]) {
-		case 'A': raw=0; break;
-		case 'B': raw=2; break;
-		case 'C': raw=3; break;
-		case 'D': raw=5; break;
-		case 'E': raw=7; break;
-		case 'F': raw=8; break;
-		case 'G': raw=10; break;
+		case 'C': raw=0; break;
+		case 'D': raw=2; break;
+		case 'E': raw=4; break;
+		case 'F': raw=5; break;
+		case 'G': raw=7; break;
+		case 'A': raw=9; break;
+		case 'B': raw=11; break;
+
 		default:
 			fprintf(stderr,"ERROR! %x\n",note[0]);
 			return '~';
@@ -33,48 +38,35 @@ static int convert_note(char *note) {
 
 	octave=(note[2]-'0');
 
-	result=OFFSET+(raw+sharp)+((octave-OCTAVE_START)*12);
-	fprintf(stderr,"Got %d (%d %d %d)\n",result,raw,sharp,octave);
+	result=(raw+sharp)+((octave-OCTAVE_START)*12);
 
-	return result;
+	if (result>max_note) max_note=result;
+	if (result<min_note) min_note=result;
+
+	fprintf(stderr,"Got %d (%d %d %d)\n",result+OFFSET,raw,sharp,octave);
+
+	return result+OFFSET;
 
 
 }
 
+static int numlens=0;
+static int len_list[1024];
 
 
 
-/* 0..63, add in ':' */
+static void add_len(int len) {
+	int i;
 
-/*  0 = A2 */
-/* 12 = A3 */
-/* 24 = A4 */
-/* 36 = A5 */
-/* ~ means silence and 0 means end of song */
-void print_note(int note) {
-
-	int raw,octave,n;
-
-	if (debug) fprintf(stderr,"\tPrinting %d (%d) -- ",note,note-OFFSET);
-
-	if (note==0) return;
-
-	if (note=='~') {
-		printf("---");
-		return;
+	for(i=0;i<numlens;i++) {
+		if (len==len_list[i]) break;
+	}
+	if (i==numlens) {
+		len_list[i]=len;
+		numlens++;
 	}
 
-	raw=note-OFFSET;
-
-	octave=(raw/12)+OCTAVE_START;
-	n=raw%12;
-
-	printf("%c%c%d\n",notes[n],sharps[n],octave);
-
-	return;
-
 }
-
 
 int main(int argc, char **argv) {
 
@@ -84,7 +76,7 @@ int main(int argc, char **argv) {
 	int which,line=0;
 	char note[4];
 
-	int last=0,len=0;
+	int last='~',len=0;
 
 	int output_ptr=0;
 	int output_notes[1024];
@@ -95,6 +87,13 @@ int main(int argc, char **argv) {
 	while(1) {
 		result=fgets(string,BUFSIZ,stdin);
 		if (result==NULL) break;
+
+		line++;
+
+		/* skip header */
+		if (line==1) continue;
+
+
 
 		which=0;
 		while(1) {
@@ -113,14 +112,15 @@ int main(int argc, char **argv) {
 				note[3]=0;
 				len++;
 
-				if (note[0]!=' ') {
-					last=convert_note(note);
-					if (debug) {
-						print_note(last);
-					}
+				if ((note[0]!=' ') || (note[2]=='-')) {
+//					if (debug) {
+//						print_note(last);
+//					}
 					output_notes[output_ptr]=last;
+					add_len(len);
 					output_lengths[output_ptr]=len+OFFSET;
 					output_ptr++;
+					last=convert_note(note);
 					len=0;
 				}
 			}
@@ -139,6 +139,14 @@ int main(int argc, char **argv) {
 		putchar(output_lengths[i]);
 	}
 	printf("\";\n");
+
+	printf("/* Found lens: ");
+	for(i=0;i<numlens;i++) {
+		printf("%d ",len_list[i]);
+	}
+	printf("*/\n");
+
+	printf("/* Min: %d, Max: %d */\n",min_note,max_note);
 
 	return 0;
 }

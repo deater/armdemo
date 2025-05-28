@@ -23,16 +23,16 @@ common.o:	common.c common.h
 player:	player.o common.o
 	$(CC) $(LFLAGS) -o player player.o common.o -lm
 
-player.o:	player.c common.h
+player.o:	player.c common.h music.h
 	$(CC) $(CFLAGS) -c player.c
 
 
 ###
 
-parse:	parse.o
-	$(CC) $(LFLAGS) -o parse parse.o -lm
+parse:	parse.o common.o
+	$(CC) $(LFLAGS) -o parse parse.o common.o -lm
 
-parse.o:	parse.c
+parse.o:	parse.c common.h
 	$(CC) $(CFLAGS) -c parse.c
 
 
