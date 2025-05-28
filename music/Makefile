@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -O2 -g
 LFLAGS =
 
-all:	test
+all:	test parse player
 
 ###
 
@@ -14,6 +14,30 @@ test.o:	test.c
 
 ###
 
+common.o:	common.c common.h
+	$(CC) $(CFLAGS) -c common.c
+
+
+###
+
+player:	player.o common.o
+	$(CC) $(LFLAGS) -o player player.o common.o -lm
+
+player.o:	player.c common.h
+	$(CC) $(CFLAGS) -c player.c
+
+
+###
+
+parse:	parse.o
+	$(CC) $(LFLAGS) -o parse parse.o -lm
+
+parse.o:	parse.c
+	$(CC) $(CFLAGS) -c parse.c
+
+
+###
+
 clean:	
-	rm -f *~ *.o test
+	rm -f *~ *.o test parse player
 
