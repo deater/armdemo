@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -g -O2 -Wall
 LFLAGS = 
 
-all:	plasma_simple rr
+all:	plasma_simple rr rr_tiny
 
 ###
 
@@ -22,5 +22,14 @@ rr.o:	rr.c
 
 ###
 
+rr_tiny:	rr_tiny.o
+	$(CC) -o rr_tiny rr_tiny.o $(LFLAGS) -lm
+
+rr_tiny.o:	rr_tiny.c
+	$(CC) $(CFLAGS) -c rr_tiny.c
+
+
+###
+
 clean:	
-	rm -f *~ *.o plasma_simple rr
+	rm -f *~ *.o plasma_simple rr rr_tiny
