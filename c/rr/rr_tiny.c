@@ -3,22 +3,23 @@
 #include <unistd.h>
 #include <math.h>
 
-int colors[]={
-	0x909090,0xac783c,0xd0805c,0xe09470,
-	0x644818,0x442800,0x985c28,0xd07070,
-	0xe08888,0xeca0a0,0x846830,0xb03c3c,
-	0xc05858,0xc8c8c8,0x404040,0x2c3000
-	};
-
 char A[]="~\\^__a^\\Z~\\\\^_ZZffa~\\^__a^\\Z~\\\\^_\\Zaaaca~_~ac_aaacaZ~\\^_\\aca~ZZZ\\ccaZZ\\Zaa_ZZ\\Z_a^\\ZZa_ZZ\\Zcca~ZZ\\Zf^_^\\ZZ\\Z_a^\\ZZa_~__\\_a~^\\Z~\\\\^_\\Zffaca_\\\\^_\\_a^\\Z~\\\\^_\\Z~acca_~ac_aaacaZ~\\^_\\aca~ZZZ\\ccaZZ\\Zaa_ZZ\\Z_a^\\ZZa_ZZ\\ZccaZZ\\Zf^_^\\ZZ\\Z_a^\\ZZa_~ZZ\\ZccaZZ\\Zaa_ZZ\\Z_a^\\ZZa_ZZ\\",
 B[]="?<<<<<=;?E<<<<><><>D<<<<<=;?E<<<<<><<<<?=C;<<<<<<<>>B<<<><<?;;;;;==@;;;;==@;;;;><=;><>B;;;;==?;;;;;><;;>;;;;><=;><>@B<<<<?=<<@@<<<<<@<<><<><<<<<<><<@@<<<<<?;<<>@C;<<<<<<<>>B<<<><<?;;;;;==@;;;;==@;;;;><=;><>B;;;;==@;;;;><;;>;;;;><=;><>@<;;;;==@;;;;==@;;;;><=;><>B;;;",
 C[]="~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~D~D~B~B~D~D~B~B~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L~D~D~B~B~D~D~B~B~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L~L~N~K~L",
 D[]=";?;???;>@?;???;>@?;???;???;>@D@?;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;???;?",
-rr3_odd[]="ZxZxZxZxZxZxZl`<^<ZxZ>_>^>ZxZ<Nb@NZxZ<NTRd<NZxZ<QNQb>ZxZ>Q[<b<ZxZ>QVQRZxZBh<RZxZBh<RWh<ZxZ<h<QWhBZtOJVg<hDZnh<OJg<hHZjh@Jg<hHZjh@Jg<hHZjh@Jg<hHZjh@Jg<hJZhh@Jg<Qh@Yh>Zhh@Jg<a<h>Yh>Zhh@Jg<Xa<h<Yh@ZH~",
-rr4_odd[]="ZxZxZxZ>`<^<ZxZ@N_<^<ZxZ<`<b>NZxZ<PTQRSNZxZ<a>Ra<ZxZ<VQKb<QZxZ>QVQRZxZ@SQb<ZxZ@a>RXZxZ>a>Wh@ZvWh<g<hDZpXWh<WhHZjhDWhHZjh@Jg<hHZjh@Jg<hJZhh@JWXa<h@Yh>Zfh@JWXa<Rh>Yh@Zdh@JWXRQb<hFZfh>JWXi@hFZfh>JWXi@hFZdXYh<JWXiDh>ZhXYh<JWh<i@XZP~",
-rr5_odd[]="ZxZxZxZ>]<^<ZxZ@^<_<NZxZ>Na<RNZxZ>MQRSNZxZ<RPLRLQZxZ<a<VQRQZxZ>QVQRZxZ@a<RZxZBa<RZxZBa>Wh<Zv_<Wh<WhDZlXOXOWh<WhFZjh@Wh<WhFZjXYh>Jg<hFZjhBJg<hFZjhBJWhJZhhBJWh<Qb<Xi<h<Zfi>h<JWh<Qb<XYh@Zbh<i<h<JWh>a<YhBZbh@QXJWh>i>hDZbh<a>JWXiBhBZdi<Ra<JXiFZP~",
-rr6_odd[]="ZxZxZxZxZL`BZxZ>N_<^<ZxZ>TQRSTZxZ<TQKb<TZxZ<La<RTZxZ>a>KRQZxZ>Va<RZxZ@f<RZxZBa<RWZxZ>WQh<Wh<ZtOXOWJh<Wh@Znh@g<h<WhBZjhBg<JWhFZhhDWJWhFZhhDWJWhFZhXYh@WJhHZhXYh@WJhHZhXi<h>WJh>a<Rh<ZhXi<h>WJh>b<Qh<ZhXi<h>WJh>a>h<ZhXi>h<WJh>YQh>ZP~",
-*b;
+E[]="ZxZxZxZxZxZxZl`<^<ZxZ>_>^>ZxZ<Nb@NZxZ<NTRd<NZxZ<QNQb>ZxZ>Q[<b<ZxZ>QVQRZxZBh<RZxZBh<RWh<ZxZ<h<QWhBZtOJVg<hDZnh<OJg<hHZjh@Jg<hHZjh@Jg<hHZjh@Jg<hHZjh@Jg<hJZhh@Jg<Qh@Yh>Zhh@Jg<a<h>Yh>Zhh@Jg<Xa<h<Yh@ZH~",
+F[]="ZxZxZxZ>`<^<ZxZ@N_<^<ZxZ<`<b>NZxZ<PTQRSNZxZ<a>Ra<ZxZ<VQKb<QZxZ>QVQRZxZ@SQb<ZxZ@a>RXZxZ>a>Wh@ZvWh<g<hDZpXWh<WhHZjhDWhHZjh@Jg<hHZjh@Jg<hJZhh@JWXa<h@Yh>Zfh@JWXa<Rh>Yh@Zdh@JWXRQb<hFZfh>JWXi@hFZfh>JWXi@hFZdXYh<JWXiDh>ZhXYh<JWh<i@XZP~",
+G[]="ZxZxZxZ>]<^<ZxZ@^<_<NZxZ>Na<RNZxZ>MQRSNZxZ<RPLRLQZxZ<a<VQRQZxZ>QVQRZxZ@a<RZxZBa<RZxZBa>Wh<Zv_<Wh<WhDZlXOXOWh<WhFZjh@Wh<WhFZjXYh>Jg<hFZjhBJg<hFZjhBJWhJZhhBJWh<Qb<Xi<h<Zfi>h<JWh<Qb<XYh@Zbh<i<h<JWh>a<YhBZbh@QXJWh>i>hDZbh<a>JWXiBhBZdi<Ra<JXiFZP~",
+H[]="ZxZxZxZxZL`BZxZ>N_<^<ZxZ>TQRSTZxZ<TQKb<TZxZ<La<RTZxZ>a>KRQZxZ>Va<RZxZ@f<RZxZBa<RWZxZ>WQh<Wh<ZtOXOWJh<Wh@Znh@g<h<WhBZjhBg<JWhFZhhDWJWhFZhhDWJWhFZhXYh@WJhHZhXYh@WJhHZhXi<h>WJh>a<Rh<ZhXi<h>WJh>b<Qh<ZhXi<h>WJh>a>h<ZhXi>h<WJh>YQh>ZP~",
+*sequence[]={E,F,G,H,H,G,F,E},
+*b,*n,*l;
+
+int f[64],o=0,w,j,d,colors[]={
+0x909090,0xac783c,0xd0805c,0xe09470,
+0x644818,0x442800,0x985c28,0xd07070,
+0xe08888,0xeca0a0,0x846830,0xb03c3c,
+0xc05858,0xc8c8c8,0x404040,0x2c3000
+};
 
 int decode(int c, int r) {
 
@@ -64,24 +65,6 @@ void dump(char *which) {
 
 }
 
-char *frames[]={
-	rr3_odd,rr3_odd,
-	rr4_odd,rr4_odd,
-	rr5_odd,rr5_odd,
-	rr6_odd,rr6_odd,
-};
-
-
-int sequence[]={0,1,2,3,3,2,1,0};
-
-
-
-
-
-
-int f[64],o=0,w,j,d;
-char *n,*l;
-
 void a(char*N,char*L){for(n=N,l=L;*n;n++,l++){
 d=(*l-58)*1000;w=(*n>'z')?0:8000/f[*n-58];
 for(j=0;j<d;j++,o++)if(w&&(j%w<w/2))b[o]+=(j>d/2)?32:63;}}
@@ -109,10 +92,7 @@ int main(int argc, char **argv) {
 	while(1) {
 		which=0;
 		while(1) {
-			dump(frames[sequence[which]*2+1]);
-
-
-			/* atari version = 60Hz/16 = 266ms */
+			dump(sequence[which]);
 			usleep(266000);
 			which++;
 			if (which>7) which=0;
