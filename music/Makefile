@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -O2 -g
 LFLAGS =
 
-all:	test parse player player2
+all:	test parse parse2 player player2 player_compact player_tiny
 
 ###
 
@@ -23,8 +23,26 @@ common.o:	common.c common.h
 player:	player.o common.o
 	$(CC) $(LFLAGS) -o player player.o common.o -lm
 
-player.o:	player.c common.h music_track1.h music_track2.h
+player.o:	player.c common.h music_track1.h
 	$(CC) $(CFLAGS) -c player.c
+
+###
+
+player_compact:	player_compact.o
+	$(CC) $(LFLAGS) -o player_compact player_compact.o -lm
+
+player_compact.o:	player_compact.c
+	$(CC) $(CFLAGS) -c player_compact.c
+
+###
+
+player_tiny:	player_tiny.o
+	$(CC) $(LFLAGS) -o player_tiny player_tiny.o -lm
+
+player_tiny.o:	player_tiny.c
+	$(CC) $(CFLAGS) -c player_tiny.c
+
+
 
 ###
 
@@ -44,9 +62,17 @@ parse:	parse.o common.o
 parse.o:	parse.c common.h
 	$(CC) $(CFLAGS) -c parse.c
 
+###
+
+parse2:	parse2.o common.o
+	$(CC) $(LFLAGS) -o parse2 parse2.o common.o -lm
+
+parse2.o:	parse2.c common.h
+	$(CC) $(CFLAGS) -c parse2.c
+
 
 ###
 
 clean:	
-	rm -f *~ *.o test parse player player2
+	rm -f *~ *.o test parse player player2 player_compact
 
