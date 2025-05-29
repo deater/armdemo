@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "common.h"
 
@@ -83,6 +84,9 @@ int main(int argc, char **argv) {
 	int output_lengths[1024];
 	int i;
 
+	int which_col=5;
+
+	if (argc>1) which_col=atoi(argv[1]);
 
 	while(1) {
 		result=fgets(string,BUFSIZ,stdin);
@@ -105,7 +109,7 @@ int main(int argc, char **argv) {
 			}
 			if (token == NULL) break;
 
-			if (which==5) {
+			if (which==which_col) {
 				note[0]=token[6];
 				note[1]=token[7];
 				note[2]=token[8];
@@ -130,7 +134,13 @@ int main(int argc, char **argv) {
 
 	printf("unsigned char notes[]=\"");
 	for(i=0;i<output_ptr;i++) {
-		putchar(output_notes[i]);
+		if (output_notes[i]=='\\') {
+			putchar('\\');
+			putchar('\\');
+		}
+		else {
+			putchar(output_notes[i]);
+		}
 	}
 	printf("\";\n");
 

@@ -3,9 +3,6 @@
 
 #include "common.h"
 
-#define OFFSET ':'
-#define OCTAVE_START	2	// start at A2
-
 static char notes[]= "CCDDEFFGGAAB";
 static char sharps[]=" # #  # # # ";
 static int debug=0;
