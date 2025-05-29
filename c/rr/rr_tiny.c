@@ -11,9 +11,9 @@ E[]="ZxZxZxZxZxZxZl`<^<ZxZ>_>^>ZxZ<Nb@NZxZ<NTRd<NZxZ<QNQb>ZxZ>Q[<b<ZxZ>QVQRZxZBh
 F[]="ZxZxZxZ>`<^<ZxZ@N_<^<ZxZ<`<b>NZxZ<PTQRSNZxZ<a>Ra<ZxZ<VQKb<QZxZ>QVQRZxZ@SQb<ZxZ@a>RXZxZ>a>Wh@ZvWh<g<hDZpXWh<WhHZjhDWhHZjh@Jg<hHZjh@Jg<hJZhh@JWXa<h@Yh>Zfh@JWXa<Rh>Yh@Zdh@JWXRQb<hFZfh>JWXi@hFZfh>JWXi@hFZdXYh<JWXiDh>ZhXYh<JWh<i@XZP~",
 G[]="ZxZxZxZ>]<^<ZxZ@^<_<NZxZ>Na<RNZxZ>MQRSNZxZ<RPLRLQZxZ<a<VQRQZxZ>QVQRZxZ@a<RZxZBa<RZxZBa>Wh<Zv_<Wh<WhDZlXOXOWh<WhFZjh@Wh<WhFZjXYh>Jg<hFZjhBJg<hFZjhBJWhJZhhBJWh<Qb<Xi<h<Zfi>h<JWh<Qb<XYh@Zbh<i<h<JWh>a<YhBZbh@QXJWh>i>hDZbh<a>JWXiBhBZdi<Ra<JXiFZP~",
 H[]="ZxZxZxZxZL`BZxZ>N_<^<ZxZ>TQRSTZxZ<TQKb<TZxZ<La<RTZxZ>a>KRQZxZ>Va<RZxZ@f<RZxZBa<RWZxZ>WQh<Wh<ZtOXOWJh<Wh@Znh@g<h<WhBZjhBg<JWhFZhhDWJWhFZhhDWJWhFZhXYh@WJhHZhXYh@WJhHZhXi<h>WJh>a<Rh<ZhXi<h>WJh>b<Qh<ZhXi<h>WJh>a>h<ZhXi>h<WJh>YQh>ZP~",
-*sequence[]={E,F,G,H,H,G,F,E},*b,*n,*l;
+*h[]={E,F,G,H,H,G,F,E},*b,*n,*l,*W;
 
-int f[64],o=0,w,j,d,x=0,colors[]={
+int f[64],o=0,w,j,d,x=0,c,r,Z=704e3,g[]={
 9474192,11302972,13664348,14718064,6572056,4466688,9985064,13660272,14715016,15507616,8677424,11549756,12605528,13158600,4210752,2895872};
 
 void a(char*N,char*L){for(n=N,l=L;*n;n++,l++){
@@ -22,62 +22,35 @@ for(j=0;j<d;j++,o++)if(w&&(j%w<w/2))b[o]+=(j>d/2)?32:63;}}
 
 int main(int argc, char **argv) {
 
-	FILE *pipe;
-	int i,se;
+	FILE *P;
+	int i,se=0;
 	for(i=0;i<64;i++) f[i]=440.0*pow(2,(float)(i-45)/12.0);
-	if (!(b=calloc(704e3,1))) return 1;
+	if (!(b=calloc(Z,1))) return 1;
 	a(A,B);o=0;a(C,D);
 	if (!fork() ) {
-		pipe=popen("/usr/bin/aplay","w");
-		if (pipe==NULL) {
+		P=popen("/usr/bin/aplay","w");
+		if (P==NULL) {
 			fprintf(stderr,"Error opening aplay!\n");
 			exit(-1);
 		}
 		while(1) {
-			fwrite(b,704000,1,pipe);
+			fwrite(b,Z,1,P);
 		}
-		pclose(pipe);
+		pclose(P);
 	}
 
+for(;;){W=h[se++&7];x=0;printf("\x1b[1;1H");
 
-	char *which;
-	int c,r;
-
-	while(1) {
-		se=0;
-		while(1) {
-			which=sequence[se];
-			x=0;
-			printf("\x1b[1;1H");
-
-			while(*which!='~') {
-				c=*which-58;
-
-				if (c<16) r=1;
-				else if (c<32) r=2;
-				else r=*(++which)-58+2;
-
-				// decode(c&0xf,r);
-
-				c&=15;
-				printf("\x1b[48;2;%d;%d;%dm",
-					(colors[c]>>16)&0xff,
-					(colors[c]>>8)&0xff,
-					(colors[c]>>0)&0xff);
-
-				for(i=0;i<r;i++,x++) {
-					if (x%80==0) printf("\n");
-					printf(" ");
-				}
-
-				which++;
-
-			}
-			usleep(266000);
-			se++;
-			se&=7;
-		}
+	while(*W<'~') {
+		c=*W-58;
+		r=(c<16)?1:(c<32)?2:*(++W)-56;
+		c&=15;
+		printf("\x1b[48;2;%d;%d;%dm",
+			(g[c]>>16)&255,(g[c]>>8)&255,g[c]&255);
+		for(i=0;i<r;i++,x++)printf(x%80?" ":"\n ");
+		W++;
 	}
-
-	return 0;
+usleep(Z/3);
 }
+
+return 0;}
